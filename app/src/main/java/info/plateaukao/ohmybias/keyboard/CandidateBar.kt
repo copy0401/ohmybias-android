@@ -127,6 +127,14 @@ class CandidateBar(context: Context) : FrameLayout(context) {
 
     fun setComposing(text: String) {
         composingLabel.text = text
+        // 對應 iOS 約束：候選捲動區起點 = composing 標籤右緣 + 8dp（標籤變長時跟著推移）
+        composingLabel.measure(
+            View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED,
+        )
+        (scrollView.layoutParams as? LayoutParams)?.let { lp ->
+            lp.leftMargin = dp(10f) + composingLabel.measuredWidth + dp(8f)
+            scrollView.layoutParams = lp
+        }
         updateToolbarVisibility()
     }
 
