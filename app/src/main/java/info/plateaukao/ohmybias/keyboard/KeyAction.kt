@@ -1,0 +1,30 @@
+package info.plateaukao.ohmybias.keyboard
+
+/// 鍵盤動作 — 對應 iOS KeyAction enum
+sealed class KeyAction {
+    data class Letter(val ch: String) : KeyAction()        // a–z、,、.（中文模式進引擎組字）
+    data class Symbol(val s: String) : KeyAction()         // 符號頁直接輸出
+    object Space : KeyAction()
+    object Backspace : KeyAction()
+    object Newline : KeyAction()
+    object ToggleLanguage : KeyAction()                    // 中 ↔ 英
+    object Shift : KeyAction()                             // 英文模式大寫
+    data class Page(val page: KeyboardView.PageKind) : KeyAction()
+    data class ToggleToolbarPage(val page: KeyboardView.PageKind) : KeyAction()
+    data class ZhuyinSymbol(val zy: String) : KeyAction()
+    data class ZhuyinTone(val tone: String) : KeyAction()
+    object ZhuyinExit : KeyAction()
+    // sweetlime 滑動手勢動作
+    data class SelectCandidateShortcut(val idx: Int) : KeyAction()  // 次選/三選上屏（n/m 上滑）
+    object LineStart : KeyAction()                         // 游標移至句首（z 下滑）
+    object LineEnd : KeyAction()                           // 游標移至句尾（m 下滑）
+    object PasteClipboard : KeyAction()                    // 貼上剪貼簿（v 下滑）
+    object Tab : KeyAction()                               // Tab（b 下滑）
+    object EnterZhuyin : KeyAction()                       // 跳轉注音查碼（Enter 上滑）
+    // sweetlime 工具列動作
+    object CursorLeft : KeyAction()                        // 游標左移
+    object CursorRight : KeyAction()                       // 游標右移
+    object DismissKeyboard : KeyAction()                   // 收折鍵盤
+    object OpenSettings : KeyAction()                      // 開啟設定 Activity
+    object Globe : KeyAction()                             // 切換系統輸入法
+}
