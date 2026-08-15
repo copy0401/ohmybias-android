@@ -1,0 +1,53 @@
+# 每次 push 到 main：跑 JVM 引擎測試、組 debug APK、發 pre-release 附上 APK。
+# 注意：runner 每次自動生成新的 debug keystore，簽章與本機/前次 build 不同 —
+# 覆蓋安裝會簽章不符，需先解除安裝舊版。
+name: prerelease
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prerelease-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 測試 + 組 debug APK
+        run: ./gradlew testDebugUnitTest assembleDebug
+
+      - name: 取版本號、命名 APK
+        id: meta
+        run: |
+          VERSION=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | cut -d'"' -f2)
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          APK="ohmybias-v${VERSION}-pre.${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "${APK}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "apk=${APK}" >> "$GITHUB_OUTPUT"
+
+      - name: 發 pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pre-v${{ steps.meta.outputs.version }}.${{ github.run_number }}
+          name: v${{ steps.meta.outputs.version }} pre.${{ github.run_number }} (${{ steps.meta.outputs.short_sha }})
+          prerelease: true
+          files: ${{ steps.meta.outputs.apk }}
+          body: |
+            自動 pre-release build — ${{ github.event.head_commit.message }}
+            commit: ${{ github.sha }}
