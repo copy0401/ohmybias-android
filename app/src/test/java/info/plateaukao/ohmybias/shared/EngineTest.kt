@@ -247,6 +247,36 @@ class SkinSettingsTest {
         skin.reload()  // 還原預設，避免影響其他測試
         assertEquals("reload 還原內建預設", SkinSettings.defaultToolbarButtons, skin.toolbarButtons)
     }
+
+    @Test
+    fun parseFlatSchema() {
+        // 新版 cskin 匯出器的扁平 schema（toolbarButtons/palette/groups 在頂層、滑動開關為布林）
+        val json = """
+        {"skinInfo": {"name": "蝦米輸入法", "author": "Ryan"},
+         "spaceKeyLayout": "1",
+         "handedness": "left",
+         "enableSwipeUpActions": true, "enableSwipeDownActions": false,
+         "enableLongPressActions": true, "showSwipeUpText": false, "showSwipeDownText": true,
+         "toolbarButtons": [1, 3, 7, 0, 10, 5, 6, 0, 8, 2],
+         "enableCustomColors": true,
+         "palette": {"light": {"bg": "#D0D3DA01", "keySystem": "#979faf80"},
+                     "dark": {"bg": "#000000"}},
+         "groups": {"lowercaseSize": 17, "systemSize": 14}}
+        """.trimIndent()
+        val skin = SkinSettings.shared
+        skin.apply(json)
+        assertEquals("扁平 toolbarButtons", listOf(1, 3, 7, 0, 10, 5, 6, 0, 8, 2), skin.toolbarButtons)
+        assertEquals("扁平 spaceKeyLayout", "1", skin.spaceKeyLayout)
+        assertTrue("swipeUp on", skin.swipeUpEnabled)
+        assertFalse("swipeDown off", skin.swipeDownEnabled)
+        assertTrue("longPress on", skin.longPressEnabled)
+        assertFalse("上滑角標關", skin.showSwipeUpText)
+        assertTrue("下滑角標開", skin.showSwipeDownText)
+        assertEquals("扁平 palette light", "#979faf80", skin.colorHex("keySystem", dark = false))
+        assertEquals("扁平 palette dark", "#000000", skin.colorHex("bg", dark = true))
+        assertEquals("扁平 groups", 17.0, skin.fontSize("lowercaseSize", 23.0), 0.0001)
+        skin.reload()
+    }
 }
 
 class WikiCorpusTest {

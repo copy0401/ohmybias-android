@@ -59,46 +59,75 @@ class SkinSettings private constructor() {
         apply(data)
     }
 
-    /// 解析 settings.json 內容（獨立出來供測試餵資料）
+    /// 解析 settings.json 內容（獨立出來供測試餵資料）。
+    /// 支援兩種 schema：舊版巢狀（toolbar/layout/swipe/globalSettings 區塊）與
+    /// 新版扁平（toolbarButtons/palette/groups/spaceKeyLayout 直接在頂層、
+    /// 滑動開關為 enableSwipeUpActions 等布林）— 新版 cskin 匯出器已改用扁平格式。
     fun apply(jsonText: String) {
         val root = try { JSONObject(jsonText) } catch (e: Exception) { return }
         isImported = true
         root.optJSONObject("skinInfo")?.optString("name")?.let {
             if (it.isNotEmpty()) skinName = it
         }
-        root.optJSONObject("toolbar")?.optJSONArray("toolbarButtons")?.let { buttons ->
+        // 工具列：新版頂層 / 舊版 toolbar 區塊
+        val buttons = root.optJSONArray("toolbarButtons")
+            ?: root.optJSONObject("toolbar")?.optJSONArray("toolbarButtons")
+        buttons?.let {
             val ids = ArrayList<Int>()
-            for (i in 0 until buttons.length()) {
-                val v = buttons.opt(i)
+            for (i in 0 until it.length()) {
+                val v = it.opt(i)
                 if (v is Number) ids.add(v.toInt())
             }
             if (ids.isNotEmpty()) toolbarButtons = ids
         }
+        // 版面：新版頂層鍵優先，舊版 layout 區塊 fallback
+        optStr(root, "spaceKeyLayout")?.let { spaceKeyLayout = it }
+        optStr(root, "keyboardLayout")?.let { keyboardLayout = it }
+        optStr(root, "longPressLayout")?.let { longPressLayout = it }
         root.optJSONObject("layout")?.let { layout ->
-            layout.optString("keyboardLayout").takeIf { it.isNotEmpty() }?.let { keyboardLayout = it }
-            layout.optString("spaceKeyLayout").takeIf { it.isNotEmpty() }?.let { spaceKeyLayout = it }
-            layout.optString("longPressLayout").takeIf { it.isNotEmpty() }?.let { longPressLayout = it }
+            optStr(layout, "keyboardLayout")?.let { keyboardLayout = it }
+            optStr(layout, "spaceKeyLayout")?.let { spaceKeyLayout = it }
+            optStr(layout, "longPressLayout")?.let { longPressLayout = it }
         }
+        // 滑動/長按開關：新版布林旗標
+        if (root.has("enableSwipeUpActions") || root.has("enableSwipeDownActions") ||
+            root.has("enableLongPressActions")
+        ) {
+            val set = HashSet<String>()
+            if (root.optBoolean("enableSwipeUpActions", true)) set.add("swipeUp")
+            if (root.optBoolean("enableSwipeDownActions", true)) set.add("swipeDown")
+            if (root.optBoolean("enableLongPressActions", true)) set.add("longPress")
+            if (root.optBoolean("showSwipeUpText", true)) set.add("showSwipeUpText")
+            if (root.optBoolean("showSwipeDownText", true)) set.add("showSwipeDownText")
+            enabledFeatures = set
+        }
+        // 舊版 swipe 區塊
         root.optJSONObject("swipe")?.optJSONArray("globalEnabledFeatures")?.let { features ->
             val set = HashSet<String>()
             for (i in 0 until features.length()) set.add(features.getString(i))
             enabledFeatures = set
         }
-        root.optJSONObject("globalSettings")?.let { global ->
-            global.optJSONObject("palette")?.let { palette ->
-                paletteLight = palette.optJSONObject("light") ?: JSONObject()
-                paletteDark = palette.optJSONObject("dark") ?: JSONObject()
+        // 調色盤/字級：新版頂層 / 舊版 globalSettings 區塊
+        val paletteObj = root.optJSONObject("palette")
+            ?: root.optJSONObject("globalSettings")?.optJSONObject("palette")
+        paletteObj?.let { palette ->
+            paletteLight = palette.optJSONObject("light") ?: JSONObject()
+            paletteDark = palette.optJSONObject("dark") ?: JSONObject()
+        }
+        val groupsObj = root.optJSONObject("groups")
+            ?: root.optJSONObject("globalSettings")?.optJSONObject("groups")
+        groupsObj?.let { groups ->
+            val m = HashMap<String, Double>()
+            for (k in groups.keys()) {
+                val v = groups.opt(k)
+                if (v is Number) m[k] = v.toDouble()
             }
-            global.optJSONObject("groups")?.let { groups ->
-                val m = HashMap<String, Double>()
-                for (k in groups.keys()) {
-                    val v = groups.opt(k)
-                    if (v is Number) m[k] = v.toDouble()
-                }
-                fontGroups = m
-            }
+            fontGroups = m
         }
     }
+
+    private fun optStr(obj: JSONObject, key: String): String? =
+        (obj.opt(key) as? String)?.takeIf { it.isNotEmpty() }
 
     // MARK: - 查詢
 
