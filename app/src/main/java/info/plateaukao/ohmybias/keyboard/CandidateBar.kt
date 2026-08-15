@@ -50,7 +50,9 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空）
     private fun item(forButtonID: Int): ToolbarItem? = when (forButtonID) {
         1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings)
-        2 -> ToolbarItem("⌄", "收折鍵盤", KeyAction.DismissKeyboard)
+        // U+2228 邏輯或 — 以數學軸垂直置中，與 ←/→ 同基準；
+        // 原 U+2304 ⌄ 箭頭符貼著字面上緣畫，在列裡看起來偏高不置中
+        2 -> ToolbarItem("∨", "收折鍵盤", KeyAction.DismissKeyboard)
         3 -> ToolbarItem("米", "中英切換", KeyAction.ToggleLanguage, isLanguage = true)
         4 -> ToolbarItem("簡", "簡繁切換", KeyAction.ToggleSimpTrad)
         5 -> ToolbarItem("♥︎", "常用語", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.PHRASES))
