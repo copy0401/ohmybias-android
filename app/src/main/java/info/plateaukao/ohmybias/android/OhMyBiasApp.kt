@@ -22,8 +22,8 @@ class OhMyBiasApp : Application() {
     /// assets → sharedDir（引擎層統一走檔案路徑；檔案小、每次啟動比對大小即可）
     private fun copyAssetsIfNeeded() {
         val names = listOf(
-            "phrases.bin", "zhuyin_data.json", "pinyin_data.json",
-            "char_freq.json", "t2s.json", "s2t.json",
+            "phrases.bin", "zhuyin_data.bin", "pinyin_data.bin",
+            "char_freq.bin", "t2s.json", "s2t.json",
         )
         for (name in names) {
             try {

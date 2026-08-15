@@ -17,7 +17,7 @@ object TestEnv {
         AppEnv.ensureDirs()
         // gradle 單元測試 working dir = app/ 模組目錄
         val assets = File("src/main/assets")
-        for (name in listOf("phrases.bin", "t2s.json", "s2t.json", "zhuyin_data.json", "pinyin_data.json", "char_freq.json")) {
+        for (name in listOf("phrases.bin", "t2s.json", "s2t.json", "zhuyin_data.bin", "pinyin_data.bin", "char_freq.bin")) {
             val src = File(assets, name)
             if (src.exists()) src.copyTo(File(dir, name), overwrite = true)
         }
@@ -264,6 +264,26 @@ class WikiCorpusTest {
         assertTrue("completions are remainders", comp.all { !it.startsWith("明天") })
         val wc = corpus.suggestWordCorpus("臺灣", 5)
         assertTrue("臺灣 has word-corpus completions", wc.isNotEmpty())
+    }
+}
+
+class ZhuyinLookupTest {
+    init { TestEnv.touch() }
+
+    @Test
+    fun binaryLookups() {
+        val zl = ZhuyinLookup()
+        val ba = zl.charsForZhuyin("ㄅㄚ")
+        assertTrue("ㄅㄚ has homophones", ba.isNotEmpty())
+        assertTrue("ㄅㄚ contains 八", "八" in ba)
+        val sorted = zl.sortByFreq(ba)
+        assertEquals("freq sort keeps size", ba.size, sorted.size)
+        val readings = zl.lookup("日")
+        assertTrue("日 has readings with homophones", readings.isNotEmpty())
+        assertTrue("日 homophones exclude self", readings.all { "日" !in it.chars })
+        val ba1 = zl.charsForPinyin("ba1")
+        assertTrue("pinyin ba1 non-empty", ba1.isNotEmpty())
+        assertTrue("ba1 contains 八", "八" in ba1)
     }
 }
 
