@@ -17,9 +17,18 @@ object KeyboardTheme {
     var keyFontScale = 1f
 
     /// 依 palette key 取色；skin 未定義時用預設 #RRGGBB(AA)
-    private fun pal(key: String, lightDefault: String, darkDefault: String): Int {
-        val hex = SkinSettings.shared.colorHex(key, isDark) ?: (if (isDark) darkDefault else lightDefault)
-        return parse(hex)
+    private fun pal(key: String, lightDefault: String, darkDefault: String): Int =
+        pal(arrayOf(key), lightDefault, darkDefault)
+
+    /// 帶別名鏈的取色：依序試 skin palette 的每個 key，全部未定義才用內建預設。
+    /// 對應 sweetlime CskinParser 的 fallback（如 textSystem → 皮膚自己的 textMain）—
+    /// 匯入皮膚缺 v2 鍵時必須鏈回皮膚內的相容色，跳到內建常數會產生暗底暗字。
+    private fun pal(keys: Array<String>, lightDefault: String, darkDefault: String): Int {
+        val skin = SkinSettings.shared
+        for (k in keys) {
+            skin.colorHex(k, isDark)?.let { return parse(it) }
+        }
+        return parse(if (isDark) darkDefault else lightDefault)
     }
 
     /// #RRGGBB 或 #RRGGBBAA（與 cskin 同格式，alpha 在尾端）
@@ -63,38 +72,38 @@ object KeyboardTheme {
     /// 角標提示文字（上滑/下滑符號）
     val textSub: Int get() = pal("textSub", "#666666", "#555555")
 
-    /// 功能鍵文字（深色模式時鍵底反白故用深字）
-    val textSystem: Int get() = pal("textSystem", "#000000", "#1A1A1A")
+    /// 功能鍵文字（內建深色設計鍵底反白故用深字；匯入皮膚未定義時鏈回其 textMain）
+    val textSystem: Int get() = pal(arrayOf("textSystem", "textMain"), "#000000", "#1A1A1A")
 
     /// 一般鍵邊框
     val border: Int get() = pal("border", "#000000", "#BBBBBB")
 
-    /// 功能鍵邊框
-    val systemBorder: Int get() = pal("systemBorder", "#000000", "#333333")
+    /// 功能鍵邊框（未定義時鏈回皮膚的一般邊框）
+    val systemBorder: Int get() = pal(arrayOf("systemBorder", "border"), "#000000", "#333333")
 
     val borderWidth: Float
-        get() = (SkinSettings.shared.paletteNumber("borderSize", dark = false) ?: 1.0).toFloat()
+        get() = (SkinSettings.shared.paletteNumber("borderSize", isDark) ?: 1.0).toFloat()
 
     const val cornerRadius = 8f
 
-    /// 工具列
+    /// 工具列（背景未定義時鏈回皮膚的鍵盤背景 — 同 sweetlime）
     val toolbarColor: Int get() = pal("toolbarColor", "#000000", "#CCCCCC")
-    val toolbarBackground: Int get() = pal("toolbarBg", "#F0F0F0", "#000000")
+    val toolbarBackground: Int get() = pal(arrayOf("toolbarBg", "bg"), "#F0F0F0", "#000000")
 
     /// 候選列
     val candidateText: Int get() = pal("candidateUnselectedText", "#000000", "#CCCCCC")
     val candidateSelectedText: Int get() = pal("candidateSelectedText", "#000000", "#000000")
     val candidateSelectedBackground: Int get() = pal("candidateSelectedBg", "#FFFFFF", "#CCCCCC")
 
-    /// 面板（符號/emoji/顏文字）左欄分類、右欄內容
+    /// 面板（符號/emoji/顏文字）左欄分類、右欄內容（缺鍵時鏈回皮膚相容色）
     val panelLeftBackground: Int get() = pal("panelLeftBg", "#F0F0F0", "#1C1C1E")
     val panelRightBackground: Int get() = pal("panelRightBg", "#FFFFFF", "#000000")
-    val panelText: Int get() = pal("panelLeftText", "#000000", "#F2F2F7")
-    val panelCategoryHighlight: Int get() = pal("panelCategoryHighlight", "#000000", "#F2F2F7")
+    val panelText: Int get() = pal(arrayOf("panelLeftText", "textMain"), "#000000", "#F2F2F7")
+    val panelCategoryHighlight: Int get() = pal(arrayOf("panelCategoryHighlight", "textMain"), "#000000", "#F2F2F7")
 
-    /// 長按氣泡
-    val bubbleShellBackground: Int get() = pal("bubbleShellBg", "#E9E2E2", "#FFFFFF")
-    val bubbleSelectedBackground: Int get() = pal("bubbleSelectedBg", "#000000", "#1A1A1A")
+    /// 長按氣泡（殼/選中底未定義時鏈回皮膚的功能鍵色，避免與氣泡文字撞色）
+    val bubbleShellBackground: Int get() = pal(arrayOf("bubbleShellBg", "keySystemHighlight"), "#E9E2E2", "#FFFFFF")
+    val bubbleSelectedBackground: Int get() = pal(arrayOf("bubbleSelectedBg", "keySystem"), "#000000", "#1A1A1A")
     val bubbleTextSelected: Int get() = pal("bubbleTextSelected", "#FFFFFF", "#FFFFFF")
     val bubbleTextUnselected: Int get() = pal("bubbleTextUnselected", "#000000", "#1A1A1A")
 
