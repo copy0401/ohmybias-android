@@ -4,7 +4,7 @@
 
 # OhMyBias 米 Android
 
-Android 嘸蝦米（Boshiamy）鍵盤 — [ohmybias-ios](../ohmybias-ios) 的 Android 移植版
+Android 嘸蝦米（Boshiamy）鍵盤 — [ohmybias-ios](https://github.com/plateaukao/ohmybias-ios) 的 Android 移植版
 （引擎層一對一對應，源自 [Yabomish](https://github.com/plateaukao/yabomish)）。
 純 Kotlin、零第三方執行期依賴。
 

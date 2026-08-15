@@ -18,6 +18,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 個人專案初期以 debug key 簽章，讓 release APK 可直接安裝；
+            // 上架或正式發佈前應改用正式 keystore
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
