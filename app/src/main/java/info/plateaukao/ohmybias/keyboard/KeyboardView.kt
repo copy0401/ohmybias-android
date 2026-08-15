@@ -343,25 +343,24 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         row3.add(KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 1.4f, isSpecial = true))
 
         // 底列（sweetlime）：[123] [🌐] [,] [大空白] [.] [⏎]
-        val punctWidth = when (skin.spaceKeyLayout) {
-            "1" -> 1.4f
-            "2" -> 1.2f
-            else -> 1.0f
-        }
+        // 工具列已有 123（按鈕 ID 9/29）時省略底列 123 鍵，寬度讓給空白鍵
+        // 空白鍵永遠優先：逗號句號固定標準鍵寬，不採用皮膚 spaceKeyLayout 的放大值
+        val show123Key = skin.toolbarButtons.none { it == 9 || it == 29 }
         val numericPage = if (skin.keyboardLayout == "row") PageKind.NUMBERS else PageKind.NUMERIC9
-        val row4 = mutableListOf<KeySpec>(
-            KeySpec("123", KeyAction.Page(numericPage), isSpecial = true),
-        )
+        val row4 = mutableListOf<KeySpec>()
+        if (show123Key) {
+            row4.add(KeySpec("123", KeyAction.Page(numericPage), isSpecial = true))
+        }
         if (needsInputModeSwitchKey) {
             row4.add(KeySpec("🌐", KeyAction.Globe, widthMultiplier = 1.0f, isSpecial = true, isGlobe = true))
         }
-        row4.add(KeySpec(",", KeyAction.Letter(","), widthMultiplier = punctWidth,
+        row4.add(KeySpec(",", KeyAction.Letter(","),
             swipeUp = swipeEntry(SwipeData.up[","], up = true),
             swipeDown = swipeEntry(SwipeData.down[","], up = false),
             longPress = if (skin.longPressEnabled) LongPressData.commaMenu else null))
         row4.add(KeySpec("", KeyAction.Space,
             swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.ToggleLanguage), up = true)))
-        row4.add(KeySpec(if (isEnglishMode) "." else "。", KeyAction.Letter("."), widthMultiplier = punctWidth,
+        row4.add(KeySpec(if (isEnglishMode) "." else "。", KeyAction.Letter("."),
             swipeUp = swipeEntry(SwipeData.up["."], up = true),
             swipeDown = swipeEntry(SwipeData.down["."], up = false),
             longPress = if (skin.longPressEnabled) LongPressData.periodMenu else null))

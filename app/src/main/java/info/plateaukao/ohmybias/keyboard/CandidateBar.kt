@@ -120,7 +120,11 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             b.isClickable = true
             b.setOnClickListener { onToolbarKey?.invoke(item.action) }
             toolbarStack.addView(b, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
-            if (item.isLanguage) languageButton = b
+            if (item.isLanguage) {
+                languageButton = b
+                // 長按米/英 → 系統輸入法選單（隱藏 🌐 鍵後仍可換輸入法）
+                b.setOnLongClickListener { onToolbarKey?.invoke(KeyAction.ShowImePicker); true }
+            }
         }
         updateToolbarVisibility()
     }

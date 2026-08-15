@@ -139,7 +139,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             setInputView(onCreateInputView())
         }
         keyboardView?.let { kv ->
-            kv.needsInputModeSwitchKey = shouldOfferSwitching()
+            kv.needsInputModeSwitchKey = shouldOfferSwitching() && !Prefs.hideGlobeKey
             kv.returnKeyLabel = returnLabel(info)
             kv.reloadKeys()
         }
@@ -248,6 +248,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                     (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
                         .showInputMethodPicker()
                 }
+            }
+            is KeyAction.ShowImePicker -> {
+                (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
+                    .showInputMethodPicker()
             }
             // 編輯動作 — 同 sweetlime 原始實作（iOS 版因 extension API 缺失無法支援）
             is KeyAction.SelectAll -> {

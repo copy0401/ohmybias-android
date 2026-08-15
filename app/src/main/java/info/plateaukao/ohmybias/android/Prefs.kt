@@ -75,6 +75,11 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("hapticFeedback", true)
         set(v) = sp.edit().putBoolean("hapticFeedback", v).apply()
 
+    /// 隱藏底列 🌐 鍵（空白鍵加寬；長按工具列米/英仍可開輸入法選單）
+    var hideGlobeKey: Boolean
+        get() = sp.getBoolean("hideGlobeKey", false)
+        set(v) = sp.edit().putBoolean("hideGlobeKey", v).apply()
+
     /// 鍵盤高度縮放（0.85–1.40；1.0 = 預設 224dp/180dp）— 大螢幕手機可調大
     var keyboardHeightScale: Float
         get() = sp.getFloat("keyboardHeightScale", 1.0f)
