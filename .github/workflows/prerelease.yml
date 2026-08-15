@@ -1,4 +1,5 @@
 # 每次 push 到 main：跑 JVM 引擎測試、組 release APK（R8）、發 pre-release 附上 APK。
+# pre-release 固定 tag「pre-release」— 永遠只有一份，新 build 先刪舊的再重建（覆蓋）。
 # 簽章金鑰不進 repo — 由 GitHub Secrets（KEYSTORE_B64 等四項）注入，
 # 與本機 ~/.gradle/gradle.properties 用同一把 key → 簽章固定，可直接覆蓋安裝更新。
 name: prerelease
@@ -56,13 +57,14 @@ jobs:
           echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "apk=${APK}" >> "$GITHUB_OUTPUT"
 
-      - name: 發 pre-release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: pre-v${{ steps.meta.outputs.version }}.${{ github.run_number }}
-          name: v${{ steps.meta.outputs.version }} pre.${{ github.run_number }} (${{ steps.meta.outputs.short_sha }})
-          prerelease: true
-          files: ${{ steps.meta.outputs.apk }}
-          body: |
-            自動 pre-release build — ${{ github.event.head_commit.message }}
-            commit: ${{ github.sha }}
+      - name: 發 pre-release（刪舊的、重建 — 永遠只有一份）
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          gh release delete pre-release --cleanup-tag -y || true
+          gh release create pre-release "${{ steps.meta.outputs.apk }}" \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "v${{ steps.meta.outputs.version }} pre.${GITHUB_RUN_NUMBER} (${{ steps.meta.outputs.short_sha }})" \
+            --notes "$(printf '自動 pre-release build — %s\ncommit: %s' "$COMMIT_MSG" "$GITHUB_SHA")"
