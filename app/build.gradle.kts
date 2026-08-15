@@ -17,7 +17,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 壓掉未用到的 Kotlin stdlib（dex 佔了 APK 大宗）；
+            // 本專案無反射、IME/Activity 等 manifest 進入點由 AGP 自動保留
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // 個人專案初期以 debug key 簽章，讓 release APK 可直接安裝；
             // 上架或正式發佈前應改用正式 keystore
             signingConfig = signingConfigs.getByName("debug")
