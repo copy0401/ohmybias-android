@@ -22,8 +22,12 @@ import info.plateaukao.ohmybias.shared.AppEnv
 import info.plateaukao.ohmybias.shared.CINCompiler
 import info.plateaukao.ohmybias.shared.CINTable
 import info.plateaukao.ohmybias.shared.SkinSettings
+import org.json.JSONObject
 import java.io.File
 import java.util.zip.ZipInputStream
+
+/// 皮膚設計器網站（plateaukao/ohmybias-skin — 匯出 .cskin 後回本頁匯入）
+private const val SKIN_DESIGNER_URL = "https://plateaukao.github.io/ohmybias-skin/"
 
 /// 設定頁 — 對應 iOS ContentView：啟用鍵盤、匯入 liu.cin、皮膚、偏好 toggle、
 /// 自訂詞編輯、指令速查；外加「測試輸入」欄位供模擬器驗證。
@@ -74,6 +78,13 @@ class MainActivity : Activity() {
         root.addView(sectionTitle("皮膚"))
         skinStatus = footnote("")
         root.addView(skinStatus)
+        root.addView(button("皮膚設計器（網頁）") {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SKIN_DESIGNER_URL)))
+            } catch (e: Exception) {
+                skinMessage.text = "找不到瀏覽器 — 請自行開啟 $SKIN_DESIGNER_URL"
+            }
+        })
         root.addView(button("匯入皮膚（.cskin）") {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
             intent.addCategory(Intent.CATEGORY_OPENABLE)
@@ -161,6 +172,15 @@ class MainActivity : Activity() {
 
         refreshTableStatus()
         refreshSkinStatus()
+
+        // 由檔案管理員／瀏覽器點 .cskin 進來（VIEW intent）— 詢問後套用
+        handleViewIntent(intent)
+    }
+
+    /// singleTop：設定頁已在最上層時再點 .cskin，intent 從這裡進來
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleViewIntent(intent)
     }
 
     // MARK: - UI helpers
@@ -228,38 +248,70 @@ class MainActivity : Activity() {
         }
     }
 
-    /// .cskin = zip，取其中 jsonnet/settings.json 的配置層
+    /// .cskin = zip，取其中 jsonnet/settings.json 的配置層；非 zip 或缺檔回 null
+    private fun readSkinSettingsJson(uri: Uri): ByteArray? {
+        var settingsJson: ByteArray? = null
+        contentResolver.openInputStream(uri)?.use { input ->
+            ZipInputStream(input).use { zip ->
+                var entry = zip.nextEntry
+                var fallback: ByteArray? = null
+                while (entry != null) {
+                    if (entry.name.endsWith("jsonnet/settings.json")) {
+                        settingsJson = zip.readBytes(); break
+                    }
+                    if (entry.name.endsWith("settings.json") && fallback == null) {
+                        fallback = zip.readBytes()
+                    }
+                    entry = zip.nextEntry
+                }
+                if (settingsJson == null) settingsJson = fallback
+            }
+        }
+        return settingsJson
+    }
+
+    private fun applySkinJson(json: ByteArray) {
+        File(SkinSettings.settingsPath).writeBytes(json)
+        SkinSettings.shared.reload()
+        skinMessage.text = if (SkinSettings.shared.isImported)
+            "已套用「${SkinSettings.shared.skinName}」— 重開鍵盤生效"
+        else "settings.json 格式無法解析"
+        refreshSkinStatus()
+    }
+
+    /// SAF 選檔匯入：直接套用（使用者已在選檔時表達意圖）
     private fun handleSkinImport(uri: Uri) {
         try {
-            var settingsJson: ByteArray? = null
-            contentResolver.openInputStream(uri)?.use { input ->
-                ZipInputStream(input).use { zip ->
-                    var entry = zip.nextEntry
-                    var fallback: ByteArray? = null
-                    while (entry != null) {
-                        if (entry.name.endsWith("jsonnet/settings.json")) {
-                            settingsJson = zip.readBytes(); break
-                        }
-                        if (entry.name.endsWith("settings.json") && fallback == null) {
-                            fallback = zip.readBytes()
-                        }
-                        entry = zip.nextEntry
-                    }
-                    if (settingsJson == null) settingsJson = fallback
-                }
-            }
-            val json = settingsJson ?: run {
+            val json = readSkinSettingsJson(uri) ?: run {
                 skinMessage.text = "找不到 settings.json — 請確認是有效的 .cskin 檔"; return
             }
-            File(SkinSettings.settingsPath).writeBytes(json)
-            SkinSettings.shared.reload()
-            skinMessage.text = if (SkinSettings.shared.isImported)
-                "已套用「${SkinSettings.shared.skinName}」— 重開鍵盤生效"
-            else "settings.json 格式無法解析"
-            refreshSkinStatus()
+            applySkinJson(json)
         } catch (e: Exception) {
             skinMessage.text = "匯入失敗：${e.message}"
         }
+    }
+
+    /// 檔案管理員／瀏覽器點 .cskin 開啟本 app（manifest VIEW intent-filter）—
+    /// 非使用者主動選檔，先顯示皮膚名稱確認再套用
+    private fun handleViewIntent(intent: Intent) {
+        if (intent.action != Intent.ACTION_VIEW) return
+        val uri = intent.data ?: return
+        val json = try { readSkinSettingsJson(uri) } catch (e: Exception) { null }
+        if (json == null) {
+            skinMessage.text = "找不到 settings.json — 請確認是有效的 .cskin 檔"
+            return
+        }
+        val name = try {
+            JSONObject(String(json, Charsets.UTF_8))
+                .optJSONObject("skinInfo")?.optString("name")
+        } catch (e: Exception) { null }
+        val displayName = name?.takeIf { it.isNotEmpty() } ?: "未命名皮膚"
+        AlertDialog.Builder(this)
+            .setTitle("套用皮膚")
+            .setMessage("要套用皮膚「$displayName」嗎？\n（會取代目前的皮膚，重開鍵盤生效）")
+            .setPositiveButton("套用") { _, _ -> applySkinJson(json) }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun refreshTableStatus() {

@@ -10,10 +10,27 @@
 
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 檔案管理員／瀏覽器點 .cskin 直接開本 app（MainActivity 詢問後套用）。
+                 pathPattern 以路徑尾端比對副檔名；多組 pattern 是 PatternMatcher
+                 對檔名含多個「.」的既知繞法。host="*" 是 pathPattern 生效的前提。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.cskin" />
+                <data android:pathPattern=".*\\..*\\.cskin" />
+                <data android:pathPattern=".*\\..*\\..*\\.cskin" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.cskin" />
             </intent-filter>
         </activity>
 
