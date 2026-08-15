@@ -15,6 +15,18 @@ android {
         versionName = "0.2.0"
     }
 
+    // 正式簽章金鑰不進 repo — CI 由 GitHub Secrets 注入環境變數，
+    // 本機由 ~/.gradle/gradle.properties 提供；兩者皆無時退回 debug key（可照常開發）
+    val ksPath = System.getenv("OHMYBIAS_KEYSTORE") ?: findProperty("OHMYBIAS_KEYSTORE") as String?
+    if (ksPath != null && file(ksPath).exists()) {
+        signingConfigs.create("release") {
+            storeFile = file(ksPath)
+            storePassword = System.getenv("OHMYBIAS_KEYSTORE_PASSWORD") ?: findProperty("OHMYBIAS_KEYSTORE_PASSWORD") as String?
+            keyAlias = System.getenv("OHMYBIAS_KEY_ALIAS") ?: findProperty("OHMYBIAS_KEY_ALIAS") as String?
+            keyPassword = System.getenv("OHMYBIAS_KEY_PASSWORD") ?: findProperty("OHMYBIAS_KEY_PASSWORD") as String?
+        }
+    }
+
     buildTypes {
         release {
             // R8 壓掉未用到的 Kotlin stdlib（dex 佔了 APK 大宗）；
@@ -22,9 +34,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // 個人專案初期以 debug key 簽章，讓 release APK 可直接安裝；
-            // 上架或正式發佈前應改用正式 keystore
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

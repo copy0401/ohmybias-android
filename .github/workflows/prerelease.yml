@@ -1,6 +1,6 @@
-# 每次 push 到 main：跑 JVM 引擎測試、組 debug APK、發 pre-release 附上 APK。
-# 注意：runner 每次自動生成新的 debug keystore，簽章與本機/前次 build 不同 —
-# 覆蓋安裝會簽章不符，需先解除安裝舊版。
+# 每次 push 到 main：跑 JVM 引擎測試、組 release APK（R8）、發 pre-release 附上 APK。
+# 簽章金鑰不進 repo — 由 GitHub Secrets（KEYSTORE_B64 等四項）注入，
+# 與本機 ~/.gradle/gradle.properties 用同一把 key → 簽章固定，可直接覆蓋安裝更新。
 name: prerelease
 
 on:
@@ -27,8 +27,23 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: 測試 + 組 debug APK
-        run: ./gradlew testDebugUnitTest assembleDebug
+      - name: 還原簽章金鑰
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::缺 KEYSTORE_B64 secret — 不簽章就不發 pre-release"
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: 測試 + 組 release APK
+        env:
+          OHMYBIAS_KEYSTORE: ${{ runner.temp }}/release.jks
+          OHMYBIAS_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          OHMYBIAS_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          OHMYBIAS_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew testDebugUnitTest assembleRelease
 
       - name: 取版本號、命名 APK
         id: meta
@@ -36,7 +51,7 @@ jobs:
           VERSION=$(grep -oE 'versionName = "[^"]+"' app/build.gradle.kts | cut -d'"' -f2)
           SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
           APK="ohmybias-v${VERSION}-pre.${GITHUB_RUN_NUMBER}.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "${APK}"
+          cp app/build/outputs/apk/release/app-release.apk "${APK}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "apk=${APK}" >> "$GITHUB_OUTPUT"
