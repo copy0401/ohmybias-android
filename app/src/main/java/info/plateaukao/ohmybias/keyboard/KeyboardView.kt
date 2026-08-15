@@ -28,7 +28,14 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     var onKey: ((KeyAction) -> Unit)? = null
 
     var currentPage = PageKind.LETTERS
+    /// 中英切換改變第三排前導鍵（英/⇧）與標點 — 變更時就地重建，
+    /// 不再依賴 onStartInputView 的無條件 reloadKeys 事後修正
     var isEnglishMode = false
+        set(value) {
+            if (field == value) return
+            field = value
+            reloadKeys()
+        }
     var isShifted = false
     var needsInputModeSwitchKey = true
     /// Enter 鍵顯示文字（依 host app 的 imeOptions：搜尋/前往/送出…）
@@ -41,6 +48,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     private var rowsOfButtons = mutableListOf<List<KeyButton>>()
     private var pageBeforeToolbarToggle: PageKind? = null
     private var panelView: CollectionPanelView? = null
+    /// 建鍵時的皮膚世代 — 皮膚重載後才需要重建 KeySpec（滑動開關/版面選項）
+    private var builtSkinGeneration = -1
 
     private val bgPaint = Paint()
 
@@ -61,6 +70,7 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     // MARK: - 換頁
 
     fun showPage(page: PageKind) {
+        if (currentPage == page && pageBeforeToolbarToggle == null) return  // 同頁免重建
         currentPage = page
         pageBeforeToolbarToggle = null
         reloadKeys()
@@ -77,7 +87,20 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         reloadKeys()
     }
 
+    /// onStartInputView 每次切輸入框都會呼叫 — 只有鍵面實際會變（🌐 鍵有無、
+    /// Enter 標籤、皮膚重載）才整面重建（取法 sweetlime initOnStartInput 的短路）
+    fun syncSessionState(needsSwitchKey: Boolean, newReturnLabel: String) {
+        if (needsInputModeSwitchKey == needsSwitchKey && returnKeyLabel == newReturnLabel &&
+            builtSkinGeneration == SkinSettings.shared.generation &&
+            currentPage != PageKind.PHRASES  // 常用語可能在設定頁被改過 — 回鍵盤時重讀
+        ) return
+        needsInputModeSwitchKey = needsSwitchKey
+        returnKeyLabel = newReturnLabel
+        reloadKeys()
+    }
+
     fun reloadKeys() {
+        builtSkinGeneration = SkinSettings.shared.generation
         removeAllViews()
         keyButtons.clear()
         rowsOfButtons.clear()
@@ -537,14 +560,15 @@ class KeyButton(
                 touchStartX = event.x; touchStartY = event.y; hasTouchStart = true
                 if (spec.action is KeyAction.Backspace) {
                     host.onKey?.invoke(KeyAction.Backspace)
+                    // 連刪節奏同 sweetlime（400ms 起跑、50ms/字 = 20 字/秒）
                     val rep = object : Runnable {
                         override fun run() {
                             host.onKey?.invoke(KeyAction.Backspace)
-                            handler2.postDelayed(this, 80)
+                            handler2.postDelayed(this, 50)
                         }
                     }
                     repeatRunnable = rep
-                    handler2.postDelayed(rep, 500)
+                    handler2.postDelayed(rep, 400)
                 }
                 if (spec.longPress != null) {
                     val lp = Runnable {
@@ -552,7 +576,7 @@ class KeyButton(
                         host.showPopup(this)
                     }
                     longPressRunnable = lp
-                    handler2.postDelayed(lp, 450)
+                    handler2.postDelayed(lp, 400)
                 }
                 return true
             }

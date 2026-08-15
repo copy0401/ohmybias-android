@@ -61,6 +61,23 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         engine.scheduleBackgroundTasks()
         // 還原上次使用的語言模式（EN/中文）
         engine.setEnglishMode(Prefs.lastEnglishMode)
+        // 反查表（查碼提示/注音同音字）整表建立成本高 — 背景預熱，
+        // 免得第一次用到的那個按鍵卡住（取法 sweetlime 的 prefetchCache）
+        Thread({
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            engine.cinTable.warmUpReverseCache()
+        }, "ohmybias-warmup").start()
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        super.onFinishInputView(finishingInput)
+        // 離開輸入框時把未寫入的字頻紀錄落盤 — process 被殺也不掉學習資料
+        engine.freqTracker.flushAll()
+    }
+
+    override fun onDestroy() {
+        engine.freqTracker.flushAll()
+        super.onDestroy()
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -138,11 +155,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         if (isDarkMode() != builtForDark || keyboardBodyHeight() != builtBodyHeight) {
             setInputView(onCreateInputView())
         }
-        keyboardView?.let { kv ->
-            kv.needsInputModeSwitchKey = shouldOfferSwitching() && !Prefs.hideGlobeKey
-            kv.returnKeyLabel = returnLabel(info)
-            kv.reloadKeys()
-        }
+        keyboardView?.syncSessionState(shouldOfferSwitching() && !Prefs.hideGlobeKey, returnLabel(info))
         refreshIdleBar()
     }
 

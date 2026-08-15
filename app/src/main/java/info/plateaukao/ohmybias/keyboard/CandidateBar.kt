@@ -81,6 +81,12 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         languageButton?.text = if (isEnglish) "英" else "米"
     }
 
+    /// 上次顯示內容 — 相同就完全不動（IME 每個按鍵/每次切輸入框都會重設候選列）
+    private var lastCandidates: List<String> = emptyList()
+    private var lastSuggestions = false
+    /// stack 目前作用中的子視圖數（多餘的隱藏備用，取代每鍵擊 removeAllViews + new TextView）
+    private var activeStackViews = 0
+
     init {
         setBackgroundColor(KeyboardTheme.toolbarBackground)
 
@@ -126,62 +132,87 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                 b.setOnLongClickListener { onToolbarKey?.invoke(KeyAction.ShowImePicker); true }
             }
         }
+        applyComposingMargin()
         updateToolbarVisibility()
     }
 
     /// 空閒（無組字、無候選）才顯示工具列；候選捲動區與其互斥
     private fun updateToolbarVisibility() {
-        val idle = composingLabel.text.isNullOrEmpty() && stack.childCount == 0
+        val idle = composingLabel.text.isNullOrEmpty() && activeStackViews == 0
         toolbarStack.visibility = if (idle) View.VISIBLE else View.GONE
         scrollView.visibility = if (idle) View.GONE else View.VISIBLE
     }
 
-    fun setComposing(text: String) {
-        composingLabel.text = text
-        // 對應 iOS 約束：候選捲動區起點 = composing 標籤右緣 + 8dp（標籤變長時跟著推移）
+    /// 對應 iOS 約束：候選捲動區起點 = composing 標籤右緣 + 8dp（標籤變長時跟著推移）
+    private fun applyComposingMargin() {
         composingLabel.measure(
             View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED,
         )
+        val m = dp(10f) + composingLabel.measuredWidth + dp(8f)
         (scrollView.layoutParams as? LayoutParams)?.let { lp ->
-            lp.leftMargin = dp(10f) + composingLabel.measuredWidth + dp(8f)
-            scrollView.layoutParams = lp
+            if (lp.leftMargin != m) {
+                lp.leftMargin = m
+                scrollView.layoutParams = lp
+            }
         }
+    }
+
+    fun setComposing(text: String) {
+        if (composingLabel.text?.toString() == text) return  // 未變就不量測/不重排
+        composingLabel.text = text
+        applyComposingMargin()
         updateToolbarVisibility()
     }
 
-    fun setCandidates(candidates: List<String>, suggestions: Boolean) {
-        stack.removeAllViews()
-        scrollView.scrollTo(0, 0)
-
-        // 聯想列開頭放 ✕ — 不需要聯想時一鍵關閉（不影響已輸出文字）
-        if (suggestions && candidates.isNotEmpty()) {
-            val x = TextView(context)
-            x.text = "✕"
-            x.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16f)
-            x.setTextColor(KeyboardTheme.textSub)
-            x.gravity = Gravity.CENTER
-            x.setPadding(dp(10f), dp(4f), dp(10f), dp(4f))
-            x.isClickable = true
-            x.contentDescription = "清除聯想"
-            x.setOnClickListener { onDismissSuggestions?.invoke() }
+    /// 從 stack 取第 index 個 TextView 重用，不夠才建（取代每鍵擊 removeAllViews + new）
+    private fun obtainStackView(index: Int): TextView {
+        while (stack.childCount <= index) {
+            val v = TextView(context)
+            v.gravity = Gravity.CENTER
+            v.isClickable = true
             val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             lp.gravity = Gravity.CENTER_VERTICAL
             lp.marginEnd = dp(4f)
-            stack.addView(x, lp)
+            stack.addView(v, lp)
+        }
+        val v = stack.getChildAt(index) as TextView
+        v.visibility = View.VISIBLE
+        return v
+    }
+
+    fun setCandidates(candidates: List<String>, suggestions: Boolean) {
+        // 內容未變就完全不動 — refreshIdleBar 常以空列表重複呼叫
+        if (suggestions == lastSuggestions && candidates == lastCandidates) return
+        lastCandidates = ArrayList(candidates)
+        lastSuggestions = suggestions
+
+        scrollView.scrollTo(0, 0)
+        var slot = 0
+
+        // 聯想列開頭放 ✕ — 不需要聯想時一鍵關閉（不影響已輸出文字）
+        if (suggestions && candidates.isNotEmpty()) {
+            val x = obtainStackView(slot); slot += 1
+            x.text = "✕"
+            x.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16f)
+            x.setTextColor(KeyboardTheme.textSub)
+            x.setPadding(dp(10f), dp(4f), dp(10f), dp(4f))
+            x.background = null
+            x.contentDescription = "清除聯想"
+            x.setOnClickListener { onDismissSuggestions?.invoke() }
         }
 
         // 候選 1–2 個時不顯示數字前綴（與 macOS 版一致的精簡顯示）
         val showIndex = candidates.size > 2 && !suggestions
         for ((i, c) in candidates.withIndex()) {
-            val b = TextView(context)
+            val b = obtainStackView(slot); slot += 1
             b.text = if (showIndex && i < 9) "${i + 1} $c" else c
             b.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
             b.setTextColor(
                 if (suggestions) 0xFF2F7CF6.toInt()
                 else KeyboardTheme.candidateText
             )
-            b.gravity = Gravity.CENTER
             b.setPadding(dp(9f), dp(4f), dp(9f), dp(4f))
+            b.contentDescription = null
             if (i == 0 && !suggestions && candidates.size > 2) {
                 b.setTextColor(KeyboardTheme.candidateSelectedText)
                 val bg = GradientDrawable()
@@ -189,15 +220,15 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                 bg.cornerRadius = dp(6f).toFloat()
                 bg.setStroke(dp(KeyboardTheme.borderWidth).coerceAtLeast(1), KeyboardTheme.border)
                 b.background = bg
+            } else {
+                b.background = null
             }
-            b.isClickable = true
             val idx = i
             b.setOnClickListener { onSelect?.invoke(idx) }
-            val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            lp.gravity = Gravity.CENTER_VERTICAL
-            lp.marginEnd = dp(4f)
-            stack.addView(b, lp)
         }
+
+        activeStackViews = slot
+        for (j in slot until stack.childCount) stack.getChildAt(j).visibility = View.GONE
         updateToolbarVisibility()
     }
 }

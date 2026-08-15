@@ -32,7 +32,7 @@ class WikiCorpus {
         val p = File(AppEnv.sharedDir, "phrases.bin")
         if (!p.exists()) return
         val d = BinData.mapped(p.path) ?: run {
-            DebugLog.log("WikiCorpus loadPhrases: mmap failed"); return
+            DebugLog.log { "WikiCorpus loadPhrases: mmap failed" }; return
         }
         if (d.count < 12 || d.u8(0) != 0x50 || d.u8(1) != 0x48 || d.u8(2) != 0x4D || d.u8(3) != 0x4D) return
         phKeyCount = d.u32(4).toInt()

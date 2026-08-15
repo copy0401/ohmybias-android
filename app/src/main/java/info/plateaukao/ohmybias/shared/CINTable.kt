@@ -18,49 +18,66 @@ class CINTable {
     // MARK: - 文字 fallback + overlay（extras — 小型 dict）
     private var overlay: MutableMap<String, MutableList<String>> = HashMap()
 
-    // MARK: - 反查快取（lazy）
-    private var _reverseTable: MutableMap<String, MutableList<String>>? = null
+    // MARK: - 反查快取（lazy；可由背景執行緒預熱 — @Volatile + 建表鎖保護發佈）
+    private val cacheLock = Any()
+
+    @Volatile private var _reverseTable: MutableMap<String, MutableList<String>>? = null
     private val reverseTable: Map<String, List<String>>
         get() {
             _reverseTable?.let { return it }
             if (!MemoryBudget.canAfford(MemoryBudget.reverseTable)) return emptyMap()
-            val r = HashMap<String, MutableList<String>>()
-            val d = binData
-            if (d != null) {
-                for (i in 0 until entryCount) {
-                    val code = readCode(d, i)
-                    for (ch in readChars(d, i)) r.getOrPut(ch) { mutableListOf() }.add(code)
+            synchronized(cacheLock) {
+                _reverseTable?.let { return it }
+                val r = HashMap<String, MutableList<String>>()
+                val d = binData
+                if (d != null) {
+                    for (i in 0 until entryCount) {
+                        val code = readCode(d, i)
+                        for (ch in readChars(d, i)) r.getOrPut(ch) { mutableListOf() }.add(code)
+                    }
                 }
+                for ((code, chars) in overlay) for (c in chars) r.getOrPut(c) { mutableListOf() }.add(code)
+                _reverseTable = r
+                return r
             }
-            for ((code, chars) in overlay) for (c in chars) r.getOrPut(c) { mutableListOf() }.add(code)
-            _reverseTable = r
-            return r
         }
 
-    private var _shortestCodes: Map<String, Set<String>>? = null
+    /// 整表反查建立成本高（走遍所有 entry）— service 啟動後在背景執行緒呼叫，
+    /// 免得第一次用到（查碼提示/注音同音字/,,SC）的那個按鍵卡住
+    fun warmUpReverseCache() {
+        reverseTable
+    }
+
+    @Volatile private var _shortestCodes: Map<String, Set<String>>? = null
     val shortestCodesTable: Map<String, Set<String>>
         get() {
             _shortestCodes?.let { return it }
-            val r = HashMap<String, Set<String>>()
-            for ((ch, codes) in reverseTable) {
-                val m = codes.minOfOrNull { it.length } ?: 0
-                r[ch] = codes.filter { it.length == m }.toSet()
+            synchronized(cacheLock) {
+                _shortestCodes?.let { return it }
+                val r = HashMap<String, Set<String>>()
+                for ((ch, codes) in reverseTable) {
+                    val m = codes.minOfOrNull { it.length } ?: 0
+                    r[ch] = codes.filter { it.length == m }.toSet()
+                }
+                _shortestCodes = r
+                return r
             }
-            _shortestCodes = r
-            return r
         }
 
-    private var _longestCodes: Map<String, Set<String>>? = null
+    @Volatile private var _longestCodes: Map<String, Set<String>>? = null
     val longestCodesTable: Map<String, Set<String>>
         get() {
             _longestCodes?.let { return it }
-            val r = HashMap<String, Set<String>>()
-            for ((ch, codes) in reverseTable) {
-                val m = codes.maxOfOrNull { it.length } ?: 0
-                r[ch] = codes.filter { it.length == m }.toSet()
+            synchronized(cacheLock) {
+                _longestCodes?.let { return it }
+                val r = HashMap<String, Set<String>>()
+                for ((ch, codes) in reverseTable) {
+                    val m = codes.maxOfOrNull { it.length } ?: 0
+                    r[ch] = codes.filter { it.length == m }.toSet()
+                }
+                _longestCodes = r
+                return r
             }
-            _longestCodes = r
-            return r
         }
 
     var t2s: Map<String, String> = emptyMap(); private set
@@ -102,7 +119,7 @@ class CINTable {
         loadCharMaps()
         // 5. maxCodeLength
         recomputeMaxCodeLength()
-        DebugLog.log("OhMyBiasIM: maxCodeLength = $maxCodeLength")
+        DebugLog.log { "OhMyBiasIM: maxCodeLength = $maxCodeLength" }
     }
 
     /// 從 .cin 文字檔載入（先編到暫存 .bin）— 測試與現場使用。
@@ -136,7 +153,7 @@ class CINTable {
 
     private fun loadBin(path: String) {
         val d = BinData.mapped(path) ?: run {
-            DebugLog.log("CINTable loadBin failed: $path"); return
+            DebugLog.log { "CINTable loadBin failed: $path" }; return
         }
         parseBinData(d)
     }
@@ -268,7 +285,7 @@ class CINTable {
         // 檔案大小限制
         if (!f.exists()) return
         if (f.length() > 100_000_000L) {
-            DebugLog.log("CIN file too large: ${f.length()} bytes, skipped"); return
+            DebugLog.log { "CIN file too large: ${f.length()} bytes, skipped" }; return
         }
         val content = try { f.readText(Charsets.UTF_8) } catch (e: Exception) { return }
         var inChardef = false
@@ -327,7 +344,7 @@ class CINTable {
             for (key in json.keys()) r[key] = json.getString(key)
             r
         } catch (e: Exception) {
-            DebugLog.log("CINTable loadCharMaps $name: ${e.message}")
+            DebugLog.log { "CINTable loadCharMaps $name: ${e.message}" }
             null
         }
     }

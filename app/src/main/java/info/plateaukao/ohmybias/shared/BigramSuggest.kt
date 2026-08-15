@@ -25,7 +25,7 @@ class BigramSuggest {
         val f = File(AppEnv.sharedDir, "bigram.bin")
         if (!f.exists()) return  // 不隨附 — 無檔即停用
         val d = BinData.mapped(f.path) ?: run {
-            DebugLog.log("BigramSuggest: failed to load ${f.path}"); return
+            DebugLog.log { "BigramSuggest: failed to load ${f.path}" }; return
         }
         if (d.count < 12 || d.u8(0) != 0x42 || d.u8(1) != 0x47 || d.u8(2) != 0x4D || d.u8(3) != 0x4D) return
         keyCount = d.u32(4).toInt()

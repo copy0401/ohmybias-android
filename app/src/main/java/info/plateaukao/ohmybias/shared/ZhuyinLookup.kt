@@ -37,7 +37,7 @@ class ZhuyinLookup {
         if (!MemoryBudget.canAfford(MemoryBudget.zhuyinLookup)) return
         if (loadBins()) {
             loaded = true
-            DebugLog.log("OhMyBiasIM: zhuyin bins mmapped")
+            DebugLog.log { "OhMyBiasIM: zhuyin bins mmapped" }
             return
         }
         loadJsonFallback()
@@ -62,7 +62,7 @@ class ZhuyinLookup {
 
     private fun loadJsonFallback() {
         val f = dataFile("zhuyin_data.json") ?: run {
-            DebugLog.log("ZhuyinLookup: zhuyin data not found"); return
+            DebugLog.log { "ZhuyinLookup: zhuyin data not found" }; return
         }
         try {
             val json = JSONObject(f.readText(Charsets.UTF_8))
@@ -70,7 +70,7 @@ class ZhuyinLookup {
             charToZhuyins = parseStringListMap(json.getJSONObject("char_to_zhuyins"))
             loaded = true
         } catch (e: Exception) {
-            DebugLog.log("ZhuyinLookup: zhuyin_data.json parse failed: ${e.message}")
+            DebugLog.log { "ZhuyinLookup: zhuyin_data.json parse failed: ${e.message}" }
             return
         }
         dataFile("char_freq.json")?.let { ff ->
@@ -80,16 +80,16 @@ class ZhuyinLookup {
                 for (k in json.keys()) m[k] = json.getInt(k)
                 charFreq = m
             } catch (e: Exception) {
-                DebugLog.log("ZhuyinLookup read char_freq: ${e.message}")
+                DebugLog.log { "ZhuyinLookup read char_freq: ${e.message}" }
             }
         }
-        DebugLog.log("OhMyBiasIM: zhuyin json loaded — ${zhuyinToChars.size} readings, ${charToZhuyins.size} chars")
+        DebugLog.log { "OhMyBiasIM: zhuyin json loaded — ${zhuyinToChars.size} readings, ${charToZhuyins.size} chars" }
         dataFile("pinyin_data.json")?.let { pf ->
             try {
                 val json = JSONObject(pf.readText(Charsets.UTF_8))
                 pinyinToChars = parseStringListMap(json.getJSONObject("pinyin_to_chars"))
             } catch (e: Exception) {
-                DebugLog.log("ZhuyinLookup read pinyin_data: ${e.message}")
+                DebugLog.log { "ZhuyinLookup read pinyin_data: ${e.message}" }
             }
         }
     }

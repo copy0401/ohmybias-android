@@ -92,7 +92,7 @@ object CINCompiler {
         val valIdx = ByteArrayOutputStream()
         for ((off, cnt) in valEntries) {
             if (off > 0xFFFF) {
-                DebugLog.log("CINCompiler: val offset $off exceeds UInt16 range, clamping")
+                DebugLog.log { "CINCompiler: val offset $off exceeds UInt16 range, clamping" }
                 writeU16(valIdx, 0xFFFF)
                 valIdx.write(minOf(cnt, 255))
                 valIdx.write(0)

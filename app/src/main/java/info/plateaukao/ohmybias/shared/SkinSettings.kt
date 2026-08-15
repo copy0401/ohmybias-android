@@ -16,6 +16,9 @@ class SkinSettings private constructor() {
         val defaultToolbarButtons = listOf(1, 3, 9, 7, 16, 17, 8, 5, 13, 2)
     }
 
+    /// 設定世代 — reload()/apply() 時遞增；KeyboardTheme 據此判斷解析快取是否過期
+    var generation = 0; private set
+
     var skinName = "sweetlime（內建）"; private set
     var isImported = false; private set
     var toolbarButtons: List<Int> = defaultToolbarButtons; private set
@@ -52,6 +55,7 @@ class SkinSettings private constructor() {
     }
 
     fun reload() {
+        generation += 1
         defaults()
         val f = File(settingsPath)
         if (!f.exists()) return
@@ -64,6 +68,7 @@ class SkinSettings private constructor() {
     /// 新版扁平（toolbarButtons/palette/groups/spaceKeyLayout 直接在頂層、
     /// 滑動開關為 enableSwipeUpActions 等布林）— 新版 cskin 匯出器已改用扁平格式。
     fun apply(jsonText: String) {
+        generation += 1
         val root = try { JSONObject(jsonText) } catch (e: Exception) { return }
         isImported = true
         root.optJSONObject("skinInfo")?.optString("name")?.let {

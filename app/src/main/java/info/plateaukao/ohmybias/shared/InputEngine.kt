@@ -355,7 +355,7 @@ class InputEngine(
     }
 
     fun selectCandidate(at: Int): Unit = sync {
-        DebugLog.log("OhMyBiasKB: selectCandidate idx=$at count=${_currentCandidates.size} composing='$_composing' zhuyin=${if (_isZhuyinMode) 1 else 0}")
+        DebugLog.log { "OhMyBiasKB: selectCandidate idx=$at count=${_currentCandidates.size} composing='$_composing' zhuyin=${if (_isZhuyinMode) 1 else 0}" }
         if (at >= _currentCandidates.size) return@sync
         // Pin 模式：把候選加進固定清單
         if (_isPinMode && _pinCode.isNotEmpty()) {
@@ -542,7 +542,7 @@ class InputEngine(
 
     private fun handleSameSound() {
         val results = zhuyinLookup.lookup(_sameSoundBase)
-        DebugLog.log("OhMyBiasKB: handleSameSound base=$_sameSoundBase results=${results.size}")
+        DebugLog.log { "OhMyBiasKB: handleSameSound base=$_sameSoundBase results=${results.size}" }
         val first = results.firstOrNull() ?: run { resetComposing(); return }
         _currentCandidates = zhuyinLookup.sortByFreq(first.chars)
         _composing = _sameSoundBase
@@ -761,7 +761,7 @@ class InputEngine(
     }
 
     private fun selectCandidateImpl(at: Int) {
-        DebugLog.log("OhMyBiasKB: selectCandidate idx=$at count=${_currentCandidates.size} composing='$_composing' zhuyin=${if (_isZhuyinMode) 1 else 0}")
+        DebugLog.log { "OhMyBiasKB: selectCandidate idx=$at count=${_currentCandidates.size} composing='$_composing' zhuyin=${if (_isZhuyinMode) 1 else 0}" }
         if (at >= _currentCandidates.size) return
         if (_isZhuyinMode) {
             val full = _currentCandidates[at]
@@ -831,11 +831,11 @@ class InputEngine(
     }
 
     private fun commitText(text: String) {
-        DebugLog.log("OhMyBiasKB: commitText='$text' composing='$_composing' sameSound=${if (_isSameSoundMode) 1 else 0}")
+        DebugLog.log { "OhMyBiasKB: commitText='$text' composing='$_composing' sameSound=${if (_isSameSoundMode) 1 else 0}" }
         // 同音字第 1 步 → 第 2 步
         if (_isSameSoundMode && _sameSoundBase.isEmpty() && text.cpCount() == 1) {
             val results = zhuyinLookup.lookup(text)
-            DebugLog.log("OhMyBiasKB: sameSound lookup char=$text results=${results.size}")
+            DebugLog.log { "OhMyBiasKB: sameSound lookup char=$text results=${results.size}" }
             if (results.isNotEmpty()) {
                 _sameSoundBase = text
                 handleSameSound(); return

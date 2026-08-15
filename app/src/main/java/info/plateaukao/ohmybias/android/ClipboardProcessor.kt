@@ -18,7 +18,7 @@ object ClipboardProcessor {
                 cm.primaryClip?.takeIf { it.itemCount > 0 }
                     ?.getItemAt(0)?.coerceToText(context)?.toString()
             } catch (e: Exception) {
-                DebugLog.log("Clipboard read: ${e.message}"); null
+                DebugLog.log { "Clipboard read: ${e.message}" }; null
             }
         }
         ClipboardBridge.toTraditional = { text -> transliterate("Hans-Hant", text) }
@@ -28,7 +28,7 @@ object ClipboardProcessor {
     private fun transliterate(id: String, text: String): String = try {
         Transliterator.getInstance(id).transliterate(text)
     } catch (e: Exception) {
-        DebugLog.log("Transliterator $id: ${e.message}")
+        DebugLog.log { "Transliterator $id: ${e.message}" }
         text
     }
 }

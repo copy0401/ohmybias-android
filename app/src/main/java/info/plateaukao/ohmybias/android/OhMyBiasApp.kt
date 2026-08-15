@@ -19,24 +19,34 @@ class OhMyBiasApp : Application() {
         DebugLog.isEnabled = { Prefs.debugMode }
     }
 
-    /// assets → sharedDir（引擎層統一走檔案路徑；檔案小、每次啟動比對大小即可）
+    /// assets → sharedDir（引擎層統一走檔案路徑）。
+    /// assets 只會隨 APK 安裝/更新而變 — 記住 lastUpdateTime，未變且檔案都在就整段跳過，
+    /// 不必每次啟動把六個資料檔全部讀進 heap 比對（取法 sweetlime 的延遲/一次性資料庫複製）
     private fun copyAssetsIfNeeded() {
         val names = listOf(
             "phrases.bin", "zhuyin_data.bin", "pinyin_data.bin",
             "char_freq.bin", "t2s.json", "s2t.json",
         )
+        val stamp = try {
+            packageManager.getPackageInfo(packageName, 0).lastUpdateTime
+        } catch (e: Exception) { 0L }
+        val prefs = getSharedPreferences("asset_sync", MODE_PRIVATE)
+        if (prefs.getLong("apk_stamp", -1L) == stamp &&
+            names.all { File(AppEnv.sharedDir, it).exists() }
+        ) return
+        var allOk = true
         for (name in names) {
             try {
                 val dst = File(AppEnv.sharedDir, name)
                 assets.open(name).use { input ->
-                    val bytes = input.readBytes()
-                    if (!dst.exists() || dst.length() != bytes.size.toLong()) {
-                        dst.writeBytes(bytes)
-                    }
+                    dst.outputStream().use { output -> input.copyTo(output) }
                 }
             } catch (e: Exception) {
-                DebugLog.log("copyAssets $name: ${e.message}")
+                allOk = false
+                DebugLog.log { "copyAssets $name: ${e.message}" }
             }
         }
+        // 全數成功才記 stamp — 失敗的下次啟動會重試
+        if (allOk) prefs.edit().putLong("apk_stamp", stamp).apply()
     }
 }
