@@ -14,6 +14,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import info.plateaukao.ohmybias.android.Prefs
@@ -101,6 +102,26 @@ class MainActivity : Activity() {
         root.addView(toggle("成對標點自動補右半", Prefs.punctuationPairing) { Prefs.punctuationPairing = it })
         root.addView(toggle("按鍵觸覺回饋", Prefs.hapticFeedback) { Prefs.hapticFeedback = it })
         root.addView(toggle("同音字含罕見讀音", Prefs.homophoneMultiReading) { Prefs.homophoneMultiReading = it })
+
+        // 鍵盤高度滑桿（大螢幕手機可調大；重開鍵盤生效 — 下方測試輸入框可即時預覽）
+        val heightLabel = footnote("")
+        fun heightPct() = (Prefs.keyboardHeightScale * 100).toInt()
+        fun updateHeightLabel() { heightLabel.text = "鍵盤高度：${heightPct()}%（85–140，重開鍵盤生效）" }
+        updateHeightLabel()
+        heightLabel.setPadding(0, dp(10f), 0, dp(2f))
+        root.addView(heightLabel)
+        val heightSeek = SeekBar(this)
+        heightSeek.max = 55  // 85% + progress → 85%..140%
+        heightSeek.progress = (heightPct() - 85).coerceIn(0, 55)
+        heightSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                Prefs.keyboardHeightScale = (85 + progress) / 100f
+                updateHeightLabel()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        root.addView(heightSeek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         // ── 測試輸入 ──
         root.addView(sectionTitle("測試輸入"))

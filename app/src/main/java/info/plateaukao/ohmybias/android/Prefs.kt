@@ -75,6 +75,11 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("hapticFeedback", true)
         set(v) = sp.edit().putBoolean("hapticFeedback", v).apply()
 
+    /// 鍵盤高度縮放（0.85–1.40；1.0 = 預設 224dp/180dp）— 大螢幕手機可調大
+    var keyboardHeightScale: Float
+        get() = sp.getFloat("keyboardHeightScale", 1.0f)
+        set(v) = sp.edit().putFloat("keyboardHeightScale", v.coerceIn(0.85f, 1.4f)).apply()
+
     /// Debug 記錄至 sharedDir/debug.log
     var debugMode: Boolean
         get() = sp.getBoolean("debugMode", false)

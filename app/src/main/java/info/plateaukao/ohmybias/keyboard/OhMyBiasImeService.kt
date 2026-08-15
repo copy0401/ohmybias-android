@@ -45,6 +45,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     private var showingSuggestions = false
 
     private var builtForDark = false
+    private var builtBodyHeight = 0
 
     private val density get() = resources.displayMetrics.density
     private fun dp(v: Float): Int = (v * density).toInt()
@@ -67,6 +68,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     @SuppressLint("InflateParams")
     override fun onCreateInputView(): View {
         KeyboardTheme.isDark = isDarkMode()
+        KeyboardTheme.keyFontScale = minOf(Prefs.keyboardHeightScale, 1.2f)
         builtForDark = KeyboardTheme.isDark
 
         val root = LinearLayout(this)
@@ -100,7 +102,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             gravity = Gravity.CENTER
         })
 
-        root.addView(frame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, keyboardBodyHeight()))
+        builtBodyHeight = keyboardBodyHeight()
+        root.addView(frame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, builtBodyHeight))
 
         bar.onSelect = { idx -> didSelectCandidate(idx) }
         bar.onToolbarKey = { action -> handleKey(action) }
@@ -121,7 +124,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     private fun keyboardBodyHeight(): Int {
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        return dp(if (landscape) 180f else 224f)
+        val base = if (landscape) 180f else 224f
+        return dp(base * Prefs.keyboardHeightScale)
     }
 
     private fun isDarkMode(): Boolean =
@@ -129,17 +133,15 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        // 深淺色或轉向改變時重建整個鍵盤（顏色在建構時解析）
-        if (isDarkMode() != builtForDark) {
+        // 深淺色、轉向或高度設定改變時重建整個鍵盤（顏色/尺寸在建構時解析；
+        // 直接改 layoutParams IME 視窗不會可靠重量測）
+        if (isDarkMode() != builtForDark || keyboardBodyHeight() != builtBodyHeight) {
             setInputView(onCreateInputView())
         }
         keyboardView?.let { kv ->
             kv.needsInputModeSwitchKey = shouldOfferSwitching()
             kv.returnKeyLabel = returnLabel(info)
             kv.reloadKeys()
-        }
-        rootView?.let { root ->
-            (root.getChildAt(1) as? FrameLayout)?.layoutParams?.height = keyboardBodyHeight()
         }
         refreshIdleBar()
     }

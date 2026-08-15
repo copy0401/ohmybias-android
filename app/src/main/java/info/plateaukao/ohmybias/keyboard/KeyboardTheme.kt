@@ -13,6 +13,9 @@ object KeyboardTheme {
     /// 目前是否深色 — 由 OhMyBiasImeService 依 Configuration 設定
     var isDark = false
 
+    /// 鍵面字級縮放 — 隨鍵盤高度調整連動（上限 1.2，避免撐爆鍵帽）；由 service 設定
+    var keyFontScale = 1f
+
     /// 依 palette key 取色；skin 未定義時用預設 #RRGGBB(AA)
     private fun pal(key: String, lightDefault: String, darkDefault: String): Int {
         val hex = SkinSettings.shared.colorHex(key, isDark) ?: (if (isDark) darkDefault else lightDefault)
@@ -100,10 +103,10 @@ object KeyboardTheme {
     private fun size(key: String, def: Double): Float =
         SkinSettings.shared.fontSize(key, def).toFloat()
 
-    val alphabetFontSize: Float get() = size("lowercaseSize", 23.0)      // 小寫字母
-    val systemFontSize: Float get() = size("systemSize", 16.0)           // 功能鍵
-    val numberFontSize: Float get() = size("numberSize", 24.0)           // 數字鍵盤
-    val swipeHintFontSize: Float get() = size("swipeSize", 10.0)         // 角標
+    val alphabetFontSize: Float get() = size("lowercaseSize", 23.0) * keyFontScale  // 小寫字母
+    val systemFontSize: Float get() = size("systemSize", 16.0) * keyFontScale       // 功能鍵
+    val numberFontSize: Float get() = size("numberSize", 24.0) * keyFontScale       // 數字鍵盤
+    val swipeHintFontSize: Float get() = size("swipeSize", 10.0) * keyFontScale     // 角標
     val toolbarIconSize: Float get() = size("toolbarSize", 27.0) * 0.63f // 工具列
     val panelSymbolFontSize: Float get() = size("panelLargeSymbolSize", 26.0)
     val panelKaomojiFontSize: Float get() = size("panelLargeKaomojiSize", 20.0)
