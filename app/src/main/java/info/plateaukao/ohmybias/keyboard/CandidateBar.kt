@@ -25,6 +25,8 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     var onSelect: ((Int) -> Unit)? = null
     /// 工具列按鈕動作（路由至 OhMyBiasImeService.handleKey）
     var onToolbarKey: ((KeyAction) -> Unit)? = null
+    /// ✕ 關閉聯想列（不輸出任何字、回到工具列）
+    var onDismissSuggestions: (() -> Unit)? = null
 
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Float): Int = (v * density).toInt()
@@ -146,6 +148,23 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     fun setCandidates(candidates: List<String>, suggestions: Boolean) {
         stack.removeAllViews()
         scrollView.scrollTo(0, 0)
+
+        // 聯想列開頭放 ✕ — 不需要聯想時一鍵關閉（不影響已輸出文字）
+        if (suggestions && candidates.isNotEmpty()) {
+            val x = TextView(context)
+            x.text = "✕"
+            x.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16f)
+            x.setTextColor(KeyboardTheme.textSub)
+            x.gravity = Gravity.CENTER
+            x.setPadding(dp(10f), dp(4f), dp(10f), dp(4f))
+            x.isClickable = true
+            x.contentDescription = "清除聯想"
+            x.setOnClickListener { onDismissSuggestions?.invoke() }
+            val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            lp.gravity = Gravity.CENTER_VERTICAL
+            lp.marginEnd = dp(4f)
+            stack.addView(x, lp)
+        }
 
         // 候選 1–2 個時不顯示數字前綴（與 macOS 版一致的精簡顯示）
         val showIndex = candidates.size > 2 && !suggestions

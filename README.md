@@ -18,7 +18,7 @@ Android 嘸蝦米（Boshiamy）鍵盤 — [ohmybias-ios](../ohmybias-ios) 的 An
 ### 輸入引擎
 
 - **嘸蝦米輸入**：匯入自己的 `liu.cin`，on-device 編譯 mmap 零拷貝載入（CINM 格式與 iOS 版相同，檔案可互通）
-- **基本聯想詞**：commit 後即出現詞組聯想（萌典詞組，CC0，僅 687KB）＋自訂詞（user_phrases.txt）
+- **基本聯想詞**：commit 後即出現詞組聯想（萌典詞組，CC0，僅 687KB）＋自訂詞（user_phrases.txt）；聯想列開頭有 ✕ 可一鍵關閉
 - **字頻學習**：freq.db 依使用習慣排序候選；`,,PIN` 固定同碼字排序
 - **`,,` 指令**：`,,T/S/J` 切模式、`,,ZH` 注音查碼、`,,TO` 同音字、`,,PYS/PYT` 拼音查碼、`,,SG` 聯想開關、`,,V/VT/VS` 剪貼簿（ICU 簡繁轉換）、`,,H` 說明
 - **極簡資料**：不含專業詞典／語料 binary（<2MB）

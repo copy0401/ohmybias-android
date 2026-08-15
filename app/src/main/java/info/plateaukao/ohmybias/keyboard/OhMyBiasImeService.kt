@@ -104,6 +104,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
         bar.onSelect = { idx -> didSelectCandidate(idx) }
         bar.onToolbarKey = { action -> handleKey(action) }
+        bar.onDismissSuggestions = {
+            haptic()
+            clearSuggestions()
+        }
         kv.onKey = { action -> handleKey(action) }
 
         rootView = root
