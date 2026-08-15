@@ -109,7 +109,7 @@ class CollectionPanelView(
                 bg.setColor(KeyboardTheme.panelCategoryHighlight)
                 bg.cornerRadius = dp(6f).toFloat()
                 b.background = bg
-                b.setTextColor(KeyboardTheme.panelLeftBackground)
+                b.setTextColor(KeyboardTheme.panelCategorySelectedText)
             } else {
                 b.background = null
                 b.setTextColor(KeyboardTheme.panelText)
