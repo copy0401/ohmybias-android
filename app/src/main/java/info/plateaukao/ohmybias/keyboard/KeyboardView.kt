@@ -109,7 +109,14 @@ class KeyboardView(context: Context) : ViewGroup(context) {
 
         when (currentPage) {
             PageKind.SYMBOL_PANEL -> { installPanel(CollectionData.symbols, KeyboardTheme.panelSymbolFontSize); return }
-            PageKind.EMOJI -> { installPanel(CollectionData.emojis, KeyboardTheme.panelEmojiFontSize); return }
+            PageKind.EMOJI -> {
+                // 「常用」分類 = 最近使用紀錄，排在「表情」前；沒紀錄就不顯示
+                val recent = RecentEmojis.all()
+                val sections = if (recent.isEmpty()) CollectionData.emojis
+                               else listOf("常用" to recent) + CollectionData.emojis
+                installPanel(sections, KeyboardTheme.panelEmojiFontSize, recordRecent = true)
+                return
+            }
             PageKind.KAOMOJIS -> { installPanel(CollectionData.kaomojis, KeyboardTheme.panelKaomojiFontSize); return }
             PageKind.PHRASES -> {
                 // ♥ 常用語面板 — 內容為 user_phrases.txt 自訂詞，點選直接上屏
@@ -141,10 +148,13 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         invalidate()
     }
 
-    private fun installPanel(sections: List<Pair<String, List<String>>>, fontSize: Float) {
+    private fun installPanel(sections: List<Pair<String, List<String>>>, fontSize: Float, recordRecent: Boolean = false) {
         if (!MemoryBudget.canAfford(MemoryBudget.collectionPanel)) return
         val panel = CollectionPanelView(context, sections, fontSize)
-        panel.onInsert = { text -> onKey?.invoke(KeyAction.Symbol(text)) }
+        panel.onInsert = { text ->
+            if (recordRecent) RecentEmojis.record(text)
+            onKey?.invoke(KeyAction.Symbol(text))
+        }
         panel.onBack = { onKey?.invoke(KeyAction.Page(PageKind.LETTERS)) }
         panel.onBackspace = { onKey?.invoke(KeyAction.Backspace) }
         addView(panel)

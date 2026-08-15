@@ -1,7 +1,8 @@
 package info.plateaukao.ohmybias.keyboard
 
 /// 面板頁資料（符號/顏文字/Emoji）— 由 sweetlime 皮膚 collectionData.libsonnet 轉出，
-/// 與 iOS 版 CollectionData.swift 同源（機械轉換）。「常用」分類在 Hamster 為動態使用紀錄，不移植。
+/// 與 iOS 版 CollectionData.swift 同源（機械轉換）。「常用」分類為動態使用紀錄，
+/// 表情面板由 RecentEmojis 提供，不在此靜態表內。
 object CollectionData {
 
     val symbols: List<Pair<String, List<String>>> = listOf(
