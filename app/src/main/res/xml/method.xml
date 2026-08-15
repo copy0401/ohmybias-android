@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 不宣告 subtype（同 sweetlime）— 系統輸入法選單才會顯示單行條目；
+     中英切換由鍵盤內部處理，不需要 per-subtype 語言。 -->
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
     android:settingsActivity="info.plateaukao.ohmybias.MainActivity"
-    android:supportsSwitchingToNextInputMethod="true">
-    <subtype
-        android:label="@string/ime_name"
-        android:imeSubtypeLocale="zh_TW"
-        android:imeSubtypeMode="keyboard" />
-</input-method>
+    android:supportsSwitchingToNextInputMethod="true" />

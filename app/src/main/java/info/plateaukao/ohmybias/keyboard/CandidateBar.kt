@@ -43,12 +43,14 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         val isLanguage: Boolean = false,
     )
 
-    /// Hamster 按鈕 ID → 本鍵盤可實作的項目；null = 不可實作 → 空白佔位。
-    /// （4 簡繁、6 剪貼本、10-12/14-15 編輯、18-25/31 Hamster 專屬 → 空）
+    /// 按鈕 ID → 動作（ID 定義同 sweetlime SkinSettings.TB_*；iOS 版因 extension API 缺失
+    /// 略過的編輯類動作，Android 依原始定義實作）。null = 不可實作 → 空白佔位。
+    /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空）
     private fun item(forButtonID: Int): ToolbarItem? = when (forButtonID) {
         1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings)
         2 -> ToolbarItem("⌄", "收折鍵盤", KeyAction.DismissKeyboard)
         3 -> ToolbarItem("米", "中英切換", KeyAction.ToggleLanguage, isLanguage = true)
+        4 -> ToolbarItem("簡", "簡繁切換", KeyAction.ToggleSimpTrad)
         5 -> ToolbarItem("♥︎", "常用語", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.PHRASES))
         7 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL))
         8 -> ToolbarItem("☺︎", "Emoji", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.EMOJI))
@@ -57,9 +59,12 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                        else KeyboardView.PageKind.NUMERIC9
             ToolbarItem("123", "數字鍵盤", KeyAction.ToggleToolbarPage(page))
         }
-        // 全選在 IME 無可靠 API — 依使用者決定，此位置固定放 ♥ 常用語
-        10 -> ToolbarItem("♥︎", "常用語", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.PHRASES))
+        10 -> ToolbarItem("全", "全選", KeyAction.SelectAll)
+        11 -> ToolbarItem("複", "複製", KeyAction.Copy)
+        12 -> ToolbarItem("剪", "剪下", KeyAction.Cut)
         13 -> ToolbarItem("貼", "貼上", KeyAction.PasteClipboard)
+        14 -> ToolbarItem("↶", "復原", KeyAction.Undo)
+        15 -> ToolbarItem("↷", "重做", KeyAction.Redo)
         16 -> ToolbarItem("←", "游標左移", KeyAction.CursorLeft)
         17 -> ToolbarItem("→", "游標右移", KeyAction.CursorRight)
         26 -> ToolbarItem("顏", "顏文字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.KAOMOJIS))

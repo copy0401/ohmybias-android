@@ -27,4 +27,11 @@ sealed class KeyAction {
     object DismissKeyboard : KeyAction()                   // 收折鍵盤
     object OpenSettings : KeyAction()                      // 開啟設定 Activity
     object Globe : KeyAction()                             // 切換系統輸入法
+    // 編輯動作（iOS 鍵盤 extension 無 API；Android 依 sweetlime 原始定義實作）
+    object SelectAll : KeyAction()                         // 全選
+    object Copy : KeyAction()                              // 複製
+    object Cut : KeyAction()                               // 剪下
+    object Undo : KeyAction()                              // 復原（Ctrl+Z）
+    object Redo : KeyAction()                              // 重做（Ctrl+Shift+Z）
+    object ToggleSimpTrad : KeyAction()                    // 簡繁切換（繁中 ↔ 簡中模式）
 }

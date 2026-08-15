@@ -8,6 +8,8 @@ import android.graphics.drawable.GradientDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.view.KeyEvent
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -241,9 +243,44 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                         .showInputMethodPicker()
                 }
             }
+            // 編輯動作 — 同 sweetlime 原始實作（iOS 版因 extension API 缺失無法支援）
+            is KeyAction.SelectAll -> {
+                engine.handleEscape()
+                currentInputConnection?.performContextMenuAction(android.R.id.selectAll)
+            }
+            is KeyAction.Copy -> {
+                engine.handleEscape()
+                currentInputConnection?.performContextMenuAction(android.R.id.copy)
+            }
+            is KeyAction.Cut -> {
+                engine.handleEscape()
+                currentInputConnection?.performContextMenuAction(android.R.id.cut)
+            }
+            is KeyAction.Undo -> {
+                engine.handleEscape()
+                sendCtrlKey(KeyEvent.KEYCODE_Z, shift = false)
+            }
+            is KeyAction.Redo -> {
+                engine.handleEscape()
+                sendCtrlKey(KeyEvent.KEYCODE_Z, shift = true)
+            }
+            is KeyAction.ToggleSimpTrad -> {
+                val target = if (engine.inputMode == InputEngine.InputMode.S) "t" else "s"
+                engine.switchToMode(target)
+            }
         }
         // ,, 指令（如 ,,ZH）可能切換引擎模式 — 每次按鍵後同步頁面
         syncPageWithEngine()
+    }
+
+    /// Ctrl(+Shift)+按鍵組合送給編輯器（復原/重做 — EditText 內建 undo manager 走此路徑）
+    private fun sendCtrlKey(keyCode: Int, shift: Boolean) {
+        val ic = currentInputConnection ?: return
+        var meta = KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON
+        if (shift) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        val now = SystemClock.uptimeMillis()
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0, meta))
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0, meta))
     }
 
     private fun switchToNextIme(): Boolean = try {
