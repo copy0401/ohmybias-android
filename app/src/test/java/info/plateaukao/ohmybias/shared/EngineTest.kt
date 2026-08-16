@@ -248,7 +248,7 @@ class InputEngineTest {
         assertFalse("setEnglishMode(false) 回中文模式", engine.isEnglishMode)
         engine.toggleEnglishMode()
         assertTrue("toggle 後為英文", engine.isEnglishMode)
-        assertEquals("toggle 顯示模式 toast", "A", mock.toasts.last())
+        assertTrue("toggle 也不顯示 toast（工具列鍵已反映狀態）", mock.toasts.isEmpty())
     }
 }
 

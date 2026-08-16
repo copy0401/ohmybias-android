@@ -404,10 +404,10 @@ class InputEngine(
         true
     }
 
+    /// 與 iOS 版同步：不顯示切換 toast — 工具列米/英鍵與第三排 英/⇧ 鍵已反映狀態
     fun toggleEnglishMode(): Unit = sync {
         _isEnglishMode = !_isEnglishMode
         resetComposing()
-        delegate?.engineDidShowToast(currentModeLabelImpl)
     }
 
     /// 直接設定中英模式（啟動時還原上次狀態用；不顯示 toast）
