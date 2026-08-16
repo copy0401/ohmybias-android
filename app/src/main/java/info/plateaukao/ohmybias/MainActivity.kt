@@ -5,11 +5,13 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Typeface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
@@ -175,6 +177,17 @@ class MainActivity : Activity() {
 
         val scroll = ScrollView(this)
         scroll.addView(root)
+        // targetSdk 36 強制 edge-to-edge（Android 15+ 系統列透明、內容延伸到底下）—
+        // 以 insets 當 padding 讓內容避開狀態列/導覽列；API 29 無此強制、維持原樣
+        if (Build.VERSION.SDK_INT >= 30) {
+            scroll.setOnApplyWindowInsetsListener { v, insets ->
+                val bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+                )
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                WindowInsets.CONSUMED
+            }
+        }
         setContentView(scroll)
 
         refreshTableStatus()

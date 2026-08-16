@@ -1,0 +1,21 @@
+OhMyBias is a minimal Boshiamy (嘸蝦米) input method keyboard — fully offline, requests zero permissions, and has no ads or tracking.
+
+IMPORTANT: This app does NOT bundle the Boshiamy table. The Boshiamy input table (liu.cin) is copyrighted by Liu Hsing Ltd. (行易有限公司). Please import a legally obtained table file in the settings page; the app compiles it on-device and it never leaves your device.
+
+Features:
+• Boshiamy input: radical composition, candidate selection, adaptive frequency ranking
+• Word suggestions: MoeDict phrases (CC0) plus your own custom phrases
+• Five keyboard pages: letters, numbers, symbols, Zhuyin lookup, and a number pad
+• English passthrough: type English words directly in Chinese mode, space commits the whole word
+• Reverse lookup of Boshiamy codes via Zhuyin/Pinyin, homophone lookup, wildcard queries
+• Traditional/Simplified mode switch and clipboard conversion
+• Gestures: swipe up/down on keys, long-press menus, space-bar cursor dragging
+• Collection panels for symbols, emoji, kaomoji, and canned phrases
+• Custom skins: design in the companion web designer, export a .cskin file, apply with one tap
+• ,, command system: code reverse lookup, frequency reset, mode switches, and more
+
+Privacy:
+• Requests no permissions at all — not even network access
+• All input processing happens on-device; nothing is collected or uploaded
+
+Open source (MIT): https://github.com/plateaukao/ohmybias-android

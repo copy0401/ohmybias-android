@@ -20,7 +20,15 @@ iOS `Shared/`）。純 Kotlin、零第三方執行期依賴（僅 Android 平台
 ./gradlew testDebugUnitTest    # JVM 引擎測試（無模擬器）
 ```
 
-Gradle 8.13（wrapper）+ AGP 8.10 + Kotlin 2.1；compileSdk 35 / minSdk 29。單一 module `app`。
+Gradle 8.13（wrapper）+ AGP 8.10 + Kotlin 2.1；compileSdk 36 / targetSdk 36 / minSdk 29。
+單一 module `app`。
+
+Google Play 上架（同 einkbro/calliplus 做法）：`playRelease` build type =
+`info.plateaukao.ohmybias.g`，與 GitHub 版（`release`，自家 keystore）並存。
+Upload key／publisher 憑證讀 `~/.secrets/ohmybias-keystore.properties`（不進 repo）。
+`./gradlew publishPlayReleaseBundle` 上傳 AAB（預設 internal 軌；首次上架草稿要
+`--release-status draft`；正式發佈 `--track production`）。Listing 文案在
+`app/src/main/play/`（Gradle Play Publisher 版面）。
 
 模擬器驗證（AVD `Pixel_7_API_34`）：
 ```bash

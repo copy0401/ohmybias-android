@@ -1,0 +1,4 @@
+0.3.0 — first release on Google Play
+• English passthrough: type English directly in Chinese mode, space commits the word with a trailing space
+• "Frequently used" emoji category; skin designer link and .cskin file association
+• Import your legally obtained liu.cin table in the settings page

@@ -1,18 +1,34 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("com.github.triplet.play") version "3.12.1"
 }
+
+// Play 上架用 upload key（與 einkbro/calliplus 共用同一把）— 秘密不進 repo，
+// 讀 ~/.secrets/ohmybias-keystore.properties（keys: storeFile[絕對路徑]/storePassword/
+// keyAlias/keyPassword/playCredentials），路徑可用 -Pohmybias.keystoreProperties 覆蓋。
+val keystorePropsFile = File(
+    project.findProperty("ohmybias.keystoreProperties")?.toString()
+        ?: (System.getProperty("user.home") + "/.secrets/ohmybias-keystore.properties")
+)
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) load(FileInputStream(keystorePropsFile))
+}
+val hasUploadKeystore = keystoreProps.containsKey("storeFile")
 
 android {
     namespace = "info.plateaukao.ohmybias"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "info.plateaukao.ohmybias"
         minSdk = 29
-        targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        targetSdk = 36
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     // 正式簽章金鑰不進 repo — CI 由 GitHub Secrets 注入環境變數，
@@ -26,6 +42,14 @@ android {
             keyPassword = System.getenv("OHMYBIAS_KEY_PASSWORD") ?: findProperty("OHMYBIAS_KEY_PASSWORD") as String?
         }
     }
+    if (hasUploadKeystore) {
+        signingConfigs.create("play") {
+            storeFile = file(keystoreProps.getProperty("storeFile"))
+            storePassword = keystoreProps.getProperty("storePassword")
+            keyAlias = keystoreProps.getProperty("keyAlias")
+            keyPassword = keystoreProps.getProperty("keyPassword")
+        }
+    }
 
     buildTypes {
         release {
@@ -36,6 +60,19 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
+        // Google Play 上架版，裝置上是 info.plateaukao.ohmybias.g —
+        // 與 GitHub 版（自家 keystore 簽）可並存，簽章互不衝突（同 einkbro .g 做法）
+        create("playRelease") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".g"
+            signingConfig = signingConfigs.findByName("play") ?: signingConfigs.getByName("debug")
+        }
+    }
+
+    // 只有 playRelease 在 Play 有 listing；關掉其餘變體讓 publishBundle 等
+    // 聚合任務不會嘗試上傳不存在的 applicationId
+    playConfigs {
+        register("release") { enabled.set(false) }
     }
 
     compileOptions {
@@ -47,6 +84,22 @@ android {
     }
 
     // phrases.bin 等以 assets 原樣打包（不壓縮與否皆可 — 啟動時複製到 filesDir 再 mmap）
+}
+
+// Gradle Play Publisher（同 einkbro/calliplus）：`./gradlew publishPlayReleaseBundle`
+// 上傳 AAB；預設 internal 軌，正式發佈明確帶 --track production。
+// 首次上架（app 仍是 console 草稿）需帶 --release-status draft。
+play {
+    serviceAccountCredentials.set(
+        file(
+            keystoreProps.getProperty(
+                "playCredentials",
+                System.getProperty("user.home") + "/.secrets/calliplus-play-publisher.json"
+            )
+        )
+    )
+    defaultToAppBundles.set(true)
+    track.set("internal")
 }
 
 dependencies {

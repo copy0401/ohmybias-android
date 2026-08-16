@@ -1,0 +1,1 @@
+Minimal offline Boshiamy IME. Zero permissions, no ads. Import your own table.
