@@ -113,6 +113,8 @@ class MainActivity : Activity() {
         // ── 輸入 ──
         root.addView(sectionTitle("輸入"))
         root.addView(toggle("唯一候選自動送出", Prefs.autoCommit) { Prefs.autoCommit = it })
+        root.addView(toggle("滿碼頂字上屏", Prefs.overflowAutoCommit) { Prefs.overflowAutoCommit = it })
+        root.addView(footnote("滿碼後續打自動送出首選。開啟時 weekly 這類前四碼恰為字根的英文字無法直通"))
         root.addView(toggle("相鄰鍵模糊比對", Prefs.fuzzyMatch) { Prefs.fuzzyMatch = it })
         root.addView(toggle("送字後顯示字根提示", Prefs.showCodeHint) { Prefs.showCodeHint = it })
         root.addView(toggle("成對標點自動補右半", Prefs.punctuationPairing) { Prefs.punctuationPairing = it })

@@ -20,6 +20,12 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("autoCommit", false)
         set(v) = sp.edit().putBoolean("autoCommit", v).apply()
 
+    /// 頂字上屏：滿碼且有候選時，下一鍵自動送出首選、開始下一字。
+    /// 預設關 — 開啟時像 weekly 這種前四碼是有效字根的英文字無法直通
+    override var overflowAutoCommit: Boolean
+        get() = sp.getBoolean("overflowAutoCommit", false)
+        set(v) = sp.edit().putBoolean("overflowAutoCommit", v).apply()
+
     /// 送字後顯示字根碼提示
     override var showCodeHint: Boolean
         get() = sp.getBoolean("showCodeHint", false)

@@ -5,6 +5,7 @@ package info.plateaukao.ohmybias.shared
 interface IMEPreferences {
     val suggestEnabled: Boolean
     val autoCommit: Boolean
+    val overflowAutoCommit: Boolean
     val fuzzyMatch: Boolean
     val showCodeHint: Boolean
     val suggestStrategy: String
@@ -25,6 +26,7 @@ object DefaultPreferences : IMEPreferences {
 
     override val suggestEnabled get() = backing?.suggestEnabled ?: true
     override val autoCommit get() = backing?.autoCommit ?: false
+    override val overflowAutoCommit get() = backing?.overflowAutoCommit ?: false
     override val fuzzyMatch get() = backing?.fuzzyMatch ?: true
     override val showCodeHint get() = backing?.showCodeHint ?: false
     override val suggestStrategy get() = backing?.suggestStrategy ?: "general"

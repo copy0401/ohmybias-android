@@ -151,7 +151,6 @@ class InputEngine(
 
     fun handleLetter(char: String) = sync {
         _snapComposing = _composing; _snapCandidates = _currentCandidates; _snapIsWildcard = _isWildcard
-        _lastWasEmptySpace = false
 
         // Pin 模式：字母鍵累積要固定的碼
         if (_isPinMode) {
@@ -187,21 +186,19 @@ class InputEngine(
         val maxLen = cinTable.maxCodeLength
 
         if (newComposing.length > maxLen) {
-            if (_currentCandidates.isNotEmpty()) {
+            // 頂字上屏（偏好，預設關）：滿碼且有候選時，下一鍵送出首選、開始下一字。
+            // 關閉時走英文直通 — 續打不清除，空白鍵原樣送出
+            if (prefs.overflowAutoCommit && _currentCandidates.isNotEmpty()) {
                 commitText(_currentCandidates[0])
                 _composing = char; _isWildcard = false
             } else {
-                resetComposing(); return@sync
+                _composing = newComposing
             }
         } else {
             _composing = newComposing
         }
 
         refreshCandidates()
-
-        if (_currentCandidates.isEmpty() && _composing.length >= cinTable.maxCodeLength && !_isWildcard) {
-            resetComposing(); return@sync
-        }
 
         if (prefs.autoCommit &&
             _currentCandidates.size == 1 && _composing.length >= 2 && !canExtendCode(_composing)
@@ -211,8 +208,6 @@ class InputEngine(
 
         notifyComposing(); notifyCandidates()
     }
-
-    private var _lastWasEmptySpace = false
 
     fun handleSpace(): Unit = sync {
         if (_composing.isEmpty()) return@sync
@@ -230,12 +225,6 @@ class InputEngine(
             resetComposing(); _currentCandidates = emptyList(); notifyCandidates()
             delegate?.engineDidClearComposing(); return@sync
         }
-        // 連按兩次空白 = escape（清除組字）
-        if (_lastWasEmptySpace && _currentCandidates.isEmpty()) {
-            _lastWasEmptySpace = false
-            resetComposing(); delegate?.engineDidClearComposing(); return@sync
-        }
-        _lastWasEmptySpace = _currentCandidates.isEmpty()
         if (_isInCommaCommand) {
             if (_commaCommandBuffer.isEmpty()) {
                 _isInCommaCommand = false; resetComposing()
@@ -244,7 +233,12 @@ class InputEngine(
             dispatchCommaCommand(); return@sync
         }
         if (_currentCandidates.isEmpty()) {
-            resetComposing(); delegate?.engineDidClearComposing(); return@sync
+            // 英文直通：無候選時空白鍵把打的字串原樣送出（不記字頻）—
+            // 空白鍵本身也要上屏，如同英文模式打字尾隨空格
+            val raw = _composing
+            resetComposing()
+            delegate?.engineDidCommit("$raw ")
+            return@sync
         }
         commitText(_currentCandidates[0])
     }

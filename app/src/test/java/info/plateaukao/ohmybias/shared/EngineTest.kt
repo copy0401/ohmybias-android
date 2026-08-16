@@ -31,6 +31,7 @@ object TestEnv {
 class MockPrefs(
     override var suggestEnabled: Boolean = true,
     override var autoCommit: Boolean = false,
+    override var overflowAutoCommit: Boolean = false,
     override var fuzzyMatch: Boolean = false,
     override var showCodeHint: Boolean = false,
     override var suggestStrategy: String = "general",
@@ -83,6 +84,7 @@ ba 朋
 hj 手
 hj 乎
 zb 「
+zzzz 龘
 %chardef end
 """
 
@@ -139,6 +141,40 @@ class InputEngineTest {
         engine.handleSpace()
         assertEquals("space commits first candidate", "日", mock.commits.last())
         assertEquals("composing cleared after commit", "", engine.composing)
+    }
+
+    @Test
+    fun englishPassthrough() {
+        val (engine, mock) = makeEngine()
+        // fixture 表 maxCodeLength=4（CINTable 下限）— "hello" 無候選且超長，應續收不清除
+        for (ch in "hello") engine.handleLetter(ch.toString())
+        assertEquals("無候選時續打不清除", "hello", engine.composing)
+        assertTrue("英文直通中無候選", engine.currentCandidates.isEmpty())
+        engine.handleSpace()
+        assertEquals("空白鍵原樣送出字串＋尾隨空格", "hello ", mock.commits.last())
+        assertEquals("送出後清空 composing", "", engine.composing)
+        // 送出後 composing 已空，再次 handleSpace 不應動作（service 層會直接輸出空白）
+        val commitCount = mock.commits.size
+        engine.handleSpace()
+        assertEquals("composing 空時 handleSpace 無動作", commitCount, mock.commits.size)
+    }
+
+    @Test
+    fun overflowAutoCommit() {
+        // 預設關：滿碼有候選（zzzz=龘）再打第五鍵不頂字 — 續打成 raw、空白原樣送出
+        // （weekly 情境：前四碼恰為有效字根的英文字也要能直通）
+        val (engine, mock) = makeEngine()
+        for (ch in "zzzzz") engine.handleLetter(ch.toString())
+        assertEquals("滿碼有候選仍續打不頂字", "zzzzz", engine.composing)
+        assertTrue("超長字串無候選", engine.currentCandidates.isEmpty())
+        engine.handleSpace()
+        assertEquals("空白鍵原樣送出＋尾隨空格", "zzzzz ", mock.commits.last())
+
+        // 開啟頂字上屏：滿碼再打一鍵送出首選、開始下一字
+        val (engine2, mock2) = makeEngine(MockPrefs(overflowAutoCommit = true))
+        for (ch in "zzzzz") engine2.handleLetter(ch.toString())
+        assertEquals("頂字上屏送出 zzzz 首選", "龘", mock2.commits.last())
+        assertEquals("頂字後以新鍵開始下一字", "z", engine2.composing)
     }
 
     @Test
