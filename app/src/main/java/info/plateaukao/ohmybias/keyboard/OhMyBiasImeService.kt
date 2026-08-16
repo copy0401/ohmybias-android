@@ -266,6 +266,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                 (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)
                     .showInputMethodPicker()
             }
+            is KeyAction.VoiceInput -> {
+                engine.handleEscape()
+                startVoiceInput()
+            }
             // 編輯動作 — 同 sweetlime 原始實作（iOS 版因 extension API 缺失無法支援）
             is KeyAction.SelectAll -> {
                 engine.handleEscape()
@@ -310,6 +314,50 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         switchToNextInputMethod(false)
     } catch (e: Exception) {
         false
+    }
+
+    /// 語音輸入 — 同 sweetlime `LIMEService.startVoiceInput()`：Android IME 不能自己開聽寫視窗，
+    /// 作法是切換到一個已啟用的「語音輸入法」，由它接手聽寫並把結果送進同一個輸入框；
+    /// 使用者說完後語音輸入法自己會切回來（或按 🌐 切回）。找不到就提示。
+    private fun startVoiceInput() {
+        val id = voiceImeId()
+        if (id == null) {
+            showToast("找不到語音輸入法", 1.8)
+            return
+        }
+        val ok = try {
+            switchInputMethod(id); true
+        } catch (e: Exception) {
+            false
+        }
+        if (!ok) showToast("無法切換語音輸入法", 1.8)
+    }
+
+    /// 挑一個可用的語音輸入法 ID — 三段搜尋同 sweetlime `LIMEUtilities.isVoiceSearchServiceExist()`
+    private fun voiceImeId(): String? {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        val enabled = try { imm.enabledInputMethodList } catch (e: Exception) { return null }
+
+        // 一：已知的 Google 語音輸入法（有 GMS 的機器最快路徑）
+        val known = setOf(
+            "com.google.android.voicesearch/.ime.VoiceInputMethodService",
+            "com.google.android.googlequicksearchbox/com.google.android.voicesearch.ime.VoiceInputMethodService",
+            "com.google.android.tts/com.google.android.apps.speech.tts.googletts.settings.asr.voiceime.VoiceInputMethodService",
+        )
+        enabled.firstOrNull { it.id in known }?.let { return it.id }
+
+        // 二：任何看起來像語音的已啟用輸入法 — 宣告 mode="voice" 的 subtype，或 ID 帶 voice/speech
+        for (imi in enabled) {
+            for (i in 0 until imi.subtypeCount) {
+                if (imi.getSubtypeAt(i).mode == "voice") return imi.id
+            }
+            val lower = imi.id.lowercase()
+            if (lower.contains("voice") || lower.contains("speech")) return imi.id
+        }
+
+        // 三：退而求其次切到 Gboard — 它有內建語音但不提供語音專用 IME/subtype，
+        // 至少讓使用者能按 Gboard 自己的麥克風鍵
+        return enabled.firstOrNull { it.id.startsWith("com.google.android.inputmethod.latin/") }?.id
     }
 
     private fun handleLetterKey(ch: String) {

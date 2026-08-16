@@ -9,6 +9,7 @@ import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import info.plateaukao.ohmybias.shared.SkinSettings
@@ -43,11 +44,14 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         val label: String,
         val action: KeyAction,
         val isLanguage: Boolean = false,
+        /// 非 0 = 改用圖示（ImageView，tint 跟著 toolbarColor）而非文字字樣
+        val iconRes: Int = 0,
     )
 
     /// 按鈕 ID → 動作（ID 定義同 sweetlime SkinSettings.TB_*；iOS 版因 extension API 缺失
     /// 略過的編輯類動作，Android 依原始定義實作）。null = 不可實作 → 空白佔位。
-    /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空）
+    /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空；
+    /// 32 起是本家自訂 ID，同步定義於皮膚設計器 ohmybias-skin `data.js` TOOLBAR_ITEMS）
     private fun item(forButtonID: Int): ToolbarItem? = when (forButtonID) {
         1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings)
         // U+2228 邏輯或 — 以數學軸垂直置中，與 ←/→ 同基準；
@@ -75,6 +79,10 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         27 -> ToolbarItem("ㄅ", "注音查碼", KeyAction.EnterZhuyin)
         29 -> ToolbarItem("123", "九宮格數字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.NUMERIC9))
         30 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL))
+        // 32 = 本家自訂（Hamster 用到 31 為止）：語音輸入 — 切到系統語音輸入法，iOS 版無此能力。
+        // 麥克風沒有黑白的 Unicode 字（🎤/🎙 加 VS15 在 Android 一律走彩色 emoji 字型、
+        // 不吃 toolbarColor），改用系統內建圖示 ic_btn_speak_now 上色。
+        32 -> ToolbarItem("", "語音輸入", KeyAction.VoiceInput, iconRes = android.R.drawable.ic_btn_speak_now)
         else -> null
     }
 
@@ -117,6 +125,20 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             val item = item(forButtonID = id)
             if (item == null) {
                 toolbarStack.addView(View(context), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
+                continue
+            }
+            if (item.iconRes != 0) {
+                val iv = ImageView(context)
+                iv.setImageResource(item.iconRes)
+                iv.imageTintList = android.content.res.ColorStateList.valueOf(KeyboardTheme.toolbarColor)
+                iv.scaleType = ImageView.ScaleType.FIT_CENTER
+                // 6dp 內縮 — 量過：圖示畫出來 50px 高，旁邊 19sp 的字樣 47px，看起來同一級
+                val ip = dp(6f)
+                iv.setPadding(ip, ip, ip, ip)
+                iv.contentDescription = item.label
+                iv.isClickable = true
+                iv.setOnClickListener { onToolbarKey?.invoke(item.action) }
+                toolbarStack.addView(iv, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
                 continue
             }
             val b = TextView(context)
