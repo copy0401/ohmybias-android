@@ -51,7 +51,7 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     /// 按鈕 ID → 動作（ID 定義同 sweetlime SkinSettings.TB_*；iOS 版因 extension API 缺失
     /// 略過的編輯類動作，Android 依原始定義實作）。null = 不可實作 → 空白佔位。
     /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空；
-    /// 32 起是本家自訂 ID，同步定義於皮膚設計器 ohmybias-skin `data.js` TOOLBAR_ITEMS）
+    /// 32 起是本家自訂 ID，同步定義於鍵盤外觀編輯器 ohmybias-skin `data.js` TOOLBAR_ITEMS）
     private fun item(forButtonID: Int): ToolbarItem? = when (forButtonID) {
         1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings)
         // U+2228 邏輯或 — 以數學軸垂直置中，與 ←/→ 同基準；

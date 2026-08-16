@@ -29,7 +29,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.zip.ZipInputStream
 
-/// 皮膚設計器網站（plateaukao/ohmybias-skin — 匯出 .cskin 後回本頁匯入）
+/// 鍵盤外觀編輯器網站（plateaukao/ohmybias-skin — 匯出 .cskin 後回本頁匯入）
 private const val SKIN_DESIGNER_URL = "https://plateaukao.github.io/ohmybias-skin/"
 
 /// 設定頁 — 對應 iOS ContentView：啟用鍵盤、匯入 liu.cin、皮膚、偏好 toggle、
@@ -84,7 +84,7 @@ class MainActivity : Activity() {
         skinStatus = footnote("")
         root.addView(skinStatus)
         root.addView(buttonFlow(
-            "皮膚設計器" to {
+            "鍵盤外觀編輯器" to {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SKIN_DESIGNER_URL)))
                 } catch (e: Exception) {
