@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -14,6 +15,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
+import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.widget.FrameLayout
@@ -82,6 +84,14 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun onEvaluateFullscreenMode(): Boolean = false
 
+    /// 導覽模式（手勢 ↔ 3 鍵）在鍵盤收起時切換的話，既有視圖不會收到新 insets
+    /// 派發，padding 停在舊值 → 導覽列又蓋回最下排。每次視窗顯示時主動要求
+    /// 重新派發，讓 onCreateInputView 掛的 listener 拿到當下的導覽列高度。
+    override fun onWindowShown() {
+        super.onWindowShown()
+        if (Build.VERSION.SDK_INT >= 35) rootView?.requestApplyInsets()
+    }
+
     @SuppressLint("InflateParams")
     override fun onCreateInputView(): View {
         KeyboardTheme.isDark = isDarkMode()
@@ -93,6 +103,16 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         root.clipChildren = false
         root.clipToPadding = false
         root.setBackgroundColor(KeyboardTheme.toolbarBackground)
+
+        // Android 15 起 targetSdk 35+ 的 IME 視窗強制 edge-to-edge，會延伸到系統
+        // 導覽列底下 — 不自己墊高的話 3 鍵導覽列／手勢區會直接蓋住最下排按鍵。
+        // 舊版系統由框架自動把 IME 排在導覽列上方，不需處理。
+        if (Build.VERSION.SDK_INT >= 35) {
+            root.setOnApplyWindowInsetsListener { v, insets ->
+                v.setPadding(0, 0, 0, insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
+                insets
+            }
+        }
 
         val bar = CandidateBar(this)
         root.addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(CandidateBar.BAR_HEIGHT_DP)))
