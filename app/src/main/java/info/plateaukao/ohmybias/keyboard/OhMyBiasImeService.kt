@@ -155,6 +155,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         root.addView(frame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, builtBodyHeight))
 
         bar.onSelect = { idx -> didSelectCandidate(idx) }
+        bar.onCommitComposing = {
+            haptic()
+            engine.commitComposingRaw()
+        }
         bar.onToolbarKey = { action -> handleKey(action) }
         bar.onDismissSuggestions = {
             haptic()

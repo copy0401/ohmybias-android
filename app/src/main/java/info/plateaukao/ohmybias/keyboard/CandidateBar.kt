@@ -28,6 +28,8 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     var onToolbarKey: ((KeyAction) -> Unit)? = null
     /// ✕ 關閉聯想列（不輸出任何字、回到工具列）
     var onDismissSuggestions: (() -> Unit)? = null
+    /// 點組字碼標籤 — 把打的字母原樣上屏（要英文單字不要候選時）
+    var onCommitComposing: (() -> Unit)? = null
 
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Float): Int = (v * density).toInt()
@@ -103,6 +105,9 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         composingLabel.typeface = Typeface.MONOSPACE
         composingLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f)
         composingLabel.setTextColor(KeyboardTheme.textSub)
+        // 組字碼本身可點 — 有候選但要英文單字時，點了原樣上屏
+        composingLabel.isClickable = true
+        composingLabel.setOnClickListener { onCommitComposing?.invoke() }
         addView(composingLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.START or Gravity.CENTER_VERTICAL
             leftMargin = dp(10f)

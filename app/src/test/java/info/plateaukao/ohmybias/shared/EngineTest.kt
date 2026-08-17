@@ -144,6 +144,22 @@ class InputEngineTest {
     }
 
     @Test
+    fun commitComposingRaw() {
+        // 有候選但使用者要英文單字：點組字碼原樣上屏（不帶尾隨空格、不記字頻）
+        val (engine, mock) = makeEngine()
+        engine.handleLetter("a")
+        assertTrue("有候選", engine.currentCandidates.isNotEmpty())
+        engine.commitComposingRaw()
+        assertEquals("原樣送出字母", "a", mock.commits.last())
+        assertEquals("送出後清空 composing", "", engine.composing)
+        assertTrue("送出後清空候選", engine.currentCandidates.isEmpty())
+        // composing 空時無動作
+        val commitCount = mock.commits.size
+        engine.commitComposingRaw()
+        assertEquals("composing 空時無動作", commitCount, mock.commits.size)
+    }
+
+    @Test
     fun englishPassthrough() {
         val (engine, mock) = makeEngine()
         // fixture 表 maxCodeLength=4（CINTable 下限）— "hello" 無候選且超長，應續收不清除

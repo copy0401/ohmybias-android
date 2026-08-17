@@ -243,6 +243,17 @@ class InputEngine(
         commitText(_currentCandidates[0])
     }
 
+    /// 點候選列左側的組字碼 — 字母原樣上屏（英文直通的手動版：有候選但使用者
+    /// 要英文單字時用；不記字頻、不帶尾隨空格）
+    fun commitComposingRaw(): Unit = sync {
+        if (_composing.isEmpty() || _isPinMode || _isInCommaCommand ||
+            _isZhuyinMode || _isPinyinMode || _isSameSoundMode
+        ) return@sync
+        val raw = _composing
+        resetComposing()
+        delegate?.engineDidCommit(raw)
+    }
+
     fun handleBackspace(): Unit = sync {
         // Pin 模式：退格移除最後選字、或最後碼、或退出
         if (_isPinMode) {
