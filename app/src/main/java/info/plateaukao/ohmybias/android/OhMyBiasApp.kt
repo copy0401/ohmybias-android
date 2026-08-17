@@ -26,6 +26,7 @@ class OhMyBiasApp : Application() {
         val names = listOf(
             "phrases.bin", "zhuyin_data.bin", "pinyin_data.bin",
             "char_freq.bin", "t2s.json", "s2t.json",
+            "default_skin.json",   // 內建預設主題 — SkinSettings 未匯入時的 fallback
         )
         val stamp = try {
             packageManager.getPackageInfo(packageName, 0).lastUpdateTime

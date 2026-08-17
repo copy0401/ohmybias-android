@@ -4,13 +4,18 @@ import org.json.JSONObject
 import java.io.File
 
 /// cskin 皮膚設定 — 讀取匯入的 .cskin 內 `jsonnet/settings.json`（存於 sharedDir
-/// 的 skin_settings.json）。未匯入時用內建 sweetlime 預設值。
+/// 的 skin_settings.json）。未匯入時 fallback 到內建預設主題 default_skin.json
+/// （隨 APK 複製到 sharedDir；「還原內建」即還原到它）；連它都沒有（如 JVM 測試）
+/// 才用 sweetlime 硬編碼預設值。
 /// 只讀「配置」層（工具列/調色盤/字級/版面選項）；jsonnet 鍵盤佈局編譯不在此層。
 class SkinSettings private constructor() {
     companion object {
         val shared: SkinSettings by lazy { SkinSettings() }
 
         val settingsPath: String get() = AppEnv.sharedDir + "/skin_settings.json"
+
+        /// 內建預設主題（assets/default_skin.json，OhMyBiasApp 隨 APK 更新複製過來）
+        val defaultSkinPath: String get() = AppEnv.sharedDir + "/default_skin.json"
 
         /// 內建預設工具列（sweetlime toolbarButtons，全選(10)位置依使用者決定放 ♥ 常用語(5)）
         val defaultToolbarButtons = listOf(1, 3, 9, 7, 16, 17, 8, 5, 13, 2)
@@ -58,9 +63,17 @@ class SkinSettings private constructor() {
         generation += 1
         defaults()
         val f = File(settingsPath)
-        if (!f.exists()) return
-        val data = try { f.readText(Charsets.UTF_8) } catch (e: Exception) { return }
+        if (f.exists()) {
+            val data = try { f.readText(Charsets.UTF_8) } catch (e: Exception) { return }
+            apply(data)
+            return
+        }
+        // 未匯入 → 內建預設主題
+        val d = File(defaultSkinPath)
+        if (!d.exists()) return
+        val data = try { d.readText(Charsets.UTF_8) } catch (e: Exception) { return }
         apply(data)
+        isImported = false   // 內建預設不算「已匯入」
     }
 
     /// 解析 settings.json 內容（獨立出來供測試餵資料）。
