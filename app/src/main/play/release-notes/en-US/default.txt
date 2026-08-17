@@ -1,4 +1,5 @@
-0.3.0 — first release on Google Play
-• English passthrough: type English directly in Chinese mode, space commits the word with a trailing space
-• "Frequently used" emoji category; skin designer link and .cskin file association
-• Import your legally obtained liu.cin table in the settings page
+0.3.1 — fixes and improvements
+• Fix: system navigation bar covered the bottom key row on Android 15/16
+• New built-in default theme (black & white); "restore built-in" now restores it
+• New "settings" button in the phrases panel; saved phrases take effect immediately
+• Wording updates in settings (theme, phrases, appearance editor)
