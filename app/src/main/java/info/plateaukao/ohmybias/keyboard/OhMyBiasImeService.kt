@@ -89,7 +89,19 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     /// 重新派發，讓 onCreateInputView 掛的 listener 拿到當下的導覽列高度。
     override fun onWindowShown() {
         super.onWindowShown()
-        if (Build.VERSION.SDK_INT >= 35) rootView?.requestApplyInsets()
+        if (Build.VERSION.SDK_INT >= 35) {
+            rootView?.let { r ->
+                r.rootWindowInsets?.let { applyNavBarPadding(r, it) }
+                r.requestApplyInsets()
+            }
+        }
+    }
+
+    private fun applyNavBarPadding(v: View, insets: WindowInsets) {
+        // navigationBars ∪ tappableElement：Android 15/16 導覽列在 navigationBars；
+        // Android 17 起收鍵盤箭頭/地球飾件列只算在 tappableElement（nav 只剩手勢 pill）
+        val type = WindowInsets.Type.navigationBars() or WindowInsets.Type.tappableElement()
+        v.setPadding(0, 0, 0, insets.getInsets(type).bottom)
     }
 
     @SuppressLint("InflateParams")
@@ -109,7 +121,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         // 舊版系統由框架自動把 IME 排在導覽列上方，不需處理。
         if (Build.VERSION.SDK_INT >= 35) {
             root.setOnApplyWindowInsetsListener { v, insets ->
-                v.setPadding(0, 0, 0, insets.getInsets(WindowInsets.Type.navigationBars()).bottom)
+                applyNavBarPadding(v, insets)
                 insets
             }
         }
