@@ -25,6 +25,7 @@ import info.plateaukao.ohmybias.shared.AppEnv
 import info.plateaukao.ohmybias.shared.CINCompiler
 import info.plateaukao.ohmybias.shared.CINTable
 import info.plateaukao.ohmybias.shared.SkinSettings
+import info.plateaukao.ohmybias.shared.UserPhrases
 import org.json.JSONObject
 import java.io.File
 import java.util.zip.ZipInputStream
@@ -35,6 +36,11 @@ private const val SKIN_DESIGNER_URL = "https://plateaukao.github.io/ohmybias-ski
 /// 設定頁 — 對應 iOS ContentView：啟用鍵盤、匯入 liu.cin、皮膚、偏好 toggle、
 /// 自訂詞編輯、指令速查；外加「測試輸入」欄位供模擬器驗證。
 class MainActivity : Activity() {
+
+    companion object {
+        /// 鍵盤常用語面板「設定」鍵帶進來 — 直接開常用語編輯對話框
+        const val EXTRA_OPEN_USER_PHRASES = "open_user_phrases"
+    }
 
     private val pickCinRequest = 1001
     private val pickSkinRequest = 1002
@@ -79,8 +85,8 @@ class MainActivity : Activity() {
         importMessage = statusFootnote()
         root.addView(importMessage)
 
-        // ── 皮膚 ──
-        root.addView(sectionTitle("皮膚"))
+        // ── 主題 ──
+        root.addView(sectionTitle("主題"))
         skinStatus = footnote("")
         root.addView(skinStatus)
         root.addView(buttonFlow(
@@ -100,7 +106,7 @@ class MainActivity : Activity() {
             "還原內建" to {
                 File(SkinSettings.settingsPath).delete()
                 SkinSettings.shared.reload()
-                skinMessage.text = "已還原內建皮膚 — 重開鍵盤生效"
+                skinMessage.text = "已還原內建主題 — 重開鍵盤生效"
                 refreshSkinStatus()
             },
         ))
@@ -110,7 +116,7 @@ class MainActivity : Activity() {
         // ── 聯想 ──
         root.addView(sectionTitle("聯想"))
         root.addView(toggle("聯想詞（萌典詞組）", Prefs.suggestEnabled) { Prefs.suggestEnabled = it })
-        root.addView(buttonFlow("自訂詞（user_phrases.txt）" to { showUserPhrasesEditor() }))
+        root.addView(buttonFlow("常用語設定" to { showUserPhrasesEditor() }))
 
         // ── 輸入 ──
         root.addView(sectionTitle("輸入"))
@@ -195,12 +201,15 @@ class MainActivity : Activity() {
 
         // 由檔案管理員／瀏覽器點 .cskin 進來（VIEW intent）— 詢問後套用
         handleViewIntent(intent)
+        // 鍵盤常用語面板「設定」鍵進來 — 直接開編輯對話框
+        if (intent.getBooleanExtra(EXTRA_OPEN_USER_PHRASES, false)) showUserPhrasesEditor()
     }
 
-    /// singleTop：設定頁已在最上層時再點 .cskin，intent 從這裡進來
+    /// singleTop：設定頁已在最上層時再點 .cskin／常用語設定，intent 從這裡進來
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleViewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_USER_PHRASES, false)) showUserPhrasesEditor()
     }
 
     // MARK: - UI helpers（Android 設定頁風格：accent 分類標題＋ripple 可點列，
@@ -398,7 +407,7 @@ class MainActivity : Activity() {
     }
 
     /// 檔案管理員／瀏覽器點 .cskin 開啟本 app（manifest VIEW intent-filter）—
-    /// 非使用者主動選檔，先顯示皮膚名稱確認再套用
+    /// 非使用者主動選檔，先顯示主題名稱確認再套用
     private fun handleViewIntent(intent: Intent) {
         if (intent.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
@@ -411,10 +420,10 @@ class MainActivity : Activity() {
             JSONObject(String(json, Charsets.UTF_8))
                 .optJSONObject("skinInfo")?.optString("name")
         } catch (e: Exception) { null }
-        val displayName = name?.takeIf { it.isNotEmpty() } ?: "未命名皮膚"
+        val displayName = name?.takeIf { it.isNotEmpty() } ?: "未命名主題"
         AlertDialog.Builder(this)
-            .setTitle("套用皮膚")
-            .setMessage("要套用皮膚「$displayName」嗎？\n（會取代目前的皮膚，重開鍵盤生效）")
+            .setTitle("套用主題")
+            .setMessage("要套用主題「$displayName」嗎？\n（會取代目前的主題，重開鍵盤生效）")
             .setPositiveButton("套用") { _, _ -> applySkinJson(json) }
             .setNegativeButton("取消", null)
             .show()
@@ -433,24 +442,26 @@ class MainActivity : Activity() {
 
     private fun refreshSkinStatus() {
         SkinSettings.shared.reload()
-        skinStatus.text = "目前皮膚：${SkinSettings.shared.skinName}"
+        skinStatus.text = "目前主題：${SkinSettings.shared.skinName}"
     }
 
-    // MARK: - 自訂詞編輯器（一行一詞，供聯想使用）
+    // MARK: - 常用語編輯器（user_phrases.txt，一行一詞 — ♥ 常用語面板內容＋聯想自訂詞）
 
     private fun showUserPhrasesEditor() {
         val path = File(AppEnv.sharedDir, "user_phrases.txt")
         val edit = EditText(this)
         edit.setText(if (path.exists()) path.readText(Charsets.UTF_8) else "")
-        edit.hint = "一行一詞，如「蝦米輸入法」\n打「蝦」即出現聯想"
+        edit.hint = "一行一詞，如「蝦米輸入法」\n顯示於 ♥ 常用語面板；打「蝦」亦出現聯想"
         edit.minLines = 8
         edit.gravity = android.view.Gravity.TOP
         edit.setPadding(dp(16f), dp(12f), dp(16f), dp(12f))
         AlertDialog.Builder(this)
-            .setTitle("自訂詞")
+            .setTitle("常用語設定")
             .setView(edit)
             .setPositiveButton("儲存") { _, _ ->
                 path.writeText(edit.text.toString(), Charsets.UTF_8)
+                // IME 同 process — 立即重讀，聯想/面板不必重開鍵盤就看得到新詞
+                UserPhrases.shared.reload()
             }
             .setNegativeButton("取消", null)
             .show()

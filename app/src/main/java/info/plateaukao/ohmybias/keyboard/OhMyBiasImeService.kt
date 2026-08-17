@@ -256,6 +256,12 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 startActivity(intent)
             }
+            is KeyAction.OpenUserPhrases -> {
+                val intent = Intent(this, MainActivity::class.java)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                intent.putExtra(MainActivity.EXTRA_OPEN_USER_PHRASES, true)
+                startActivity(intent)
+            }
             is KeyAction.Globe -> {
                 if (!switchToNextIme()) {
                     (getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager)

@@ -19,11 +19,13 @@ class CollectionPanelView(
     context: Context,
     private val sections: List<Pair<String, List<String>>>,
     private val itemFontSize: Float,
+    private val showSettings: Boolean = false,
 ) : FrameLayout(context) {
 
     var onInsert: ((String) -> Unit)? = null
     var onBack: (() -> Unit)? = null
     var onBackspace: (() -> Unit)? = null
+    var onSettings: (() -> Unit)? = null
 
     private val density = context.resources.displayMetrics.density
     private fun dp(v: Float): Int = (v * density).toInt()
@@ -61,6 +63,13 @@ class CollectionPanelView(
             lp.bottomMargin = dp(2f)
             categoryStack.addView(b, lp)
             categoryButtons.add(b)
+        }
+
+        // 常用語面板：分類下方的「設定」— 開設定頁的常用語編輯對話框
+        if (showSettings) {
+            val lp = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(34f))
+            lp.topMargin = dp(6f)
+            categoryStack.addView(bottomButton("設定") { onSettings?.invoke() }, lp)
         }
 
         // 右欄內容格

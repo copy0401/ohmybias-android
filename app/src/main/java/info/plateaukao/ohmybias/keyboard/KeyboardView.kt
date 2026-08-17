@@ -119,9 +119,10 @@ class KeyboardView(context: Context) : ViewGroup(context) {
             }
             PageKind.KAOMOJIS -> { installPanel(CollectionData.kaomojis, KeyboardTheme.panelKaomojiFontSize); return }
             PageKind.PHRASES -> {
-                // ♥ 常用語面板 — 內容為 user_phrases.txt 自訂詞，點選直接上屏
+                // ♥ 常用語面板 — 內容為 user_phrases.txt，點選直接上屏；「設定」開編輯對話框
                 UserPhrases.shared.reload()
-                installPanel(listOf("常用語" to UserPhrases.shared.allPhrases()), KeyboardTheme.panelKaomojiFontSize)
+                installPanel(listOf("常用語" to UserPhrases.shared.allPhrases()), KeyboardTheme.panelKaomojiFontSize,
+                             settingsAction = KeyAction.OpenUserPhrases)
                 return
             }
             else -> {}
@@ -148,9 +149,13 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         invalidate()
     }
 
-    private fun installPanel(sections: List<Pair<String, List<String>>>, fontSize: Float, recordRecent: Boolean = false) {
+    private fun installPanel(
+        sections: List<Pair<String, List<String>>>, fontSize: Float,
+        recordRecent: Boolean = false, settingsAction: KeyAction? = null,
+    ) {
         if (!MemoryBudget.canAfford(MemoryBudget.collectionPanel)) return
-        val panel = CollectionPanelView(context, sections, fontSize)
+        val panel = CollectionPanelView(context, sections, fontSize, showSettings = settingsAction != null)
+        if (settingsAction != null) panel.onSettings = { onKey?.invoke(settingsAction) }
         panel.onInsert = { text ->
             if (recordRecent) RecentEmojis.record(text)
             onKey?.invoke(KeyAction.Symbol(text))

@@ -26,6 +26,7 @@ sealed class KeyAction {
     object CursorRight : KeyAction()                       // 游標右移
     object DismissKeyboard : KeyAction()                   // 收折鍵盤
     object OpenSettings : KeyAction()                      // 開啟設定 Activity
+    object OpenUserPhrases : KeyAction()                   // 開啟設定 Activity 的常用語設定對話框
     object Globe : KeyAction()                             // 切換系統輸入法
     object ShowImePicker : KeyAction()                     // 顯示系統輸入法選單（工具列米/英長按）
     object VoiceInput : KeyAction()                        // 語音輸入（切到系統語音輸入法）
