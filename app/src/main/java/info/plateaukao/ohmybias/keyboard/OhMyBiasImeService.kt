@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowInsets
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.widget.FrameLayout
@@ -101,7 +102,20 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         // navigationBars ∪ tappableElement：Android 15/16 導覽列在 navigationBars；
         // Android 17 起收鍵盤箭頭/地球飾件列只算在 tappableElement（nav 只剩手勢 pill）
         val type = WindowInsets.Type.navigationBars() or WindowInsets.Type.tappableElement()
-        v.setPadding(0, 0, 0, insets.getInsets(type).bottom)
+        val insetBottom = insets.getInsets(type).bottom
+        // One UI（Samsung S25U 實測）系統本來就把 IME 排在導覽列上方、卻仍回報
+        // 導覽列 inset — 照抄會多墊出一整條空白。故墊的是「視圖實際延伸進導覽列
+        // 區域」的重疊量：AOSP 視圖底邊＝螢幕底 → 全額；One UI 底邊已在導覽列
+        // 頂 → 0。視圖底邊由框架錨定，不受自身 padding 影響，計算收斂不震盪。
+        var pad = insetBottom
+        if (v.isLaidOut) {
+            val screenBottom = getSystemService(WindowManager::class.java)
+                .maximumWindowMetrics.bounds.bottom
+            val loc = IntArray(2)
+            v.getLocationOnScreen(loc)
+            pad = (loc[1] + v.height - (screenBottom - insetBottom)).coerceIn(0, insetBottom)
+        }
+        if (pad != v.paddingBottom) v.setPadding(0, 0, 0, pad)
     }
 
     @SuppressLint("InflateParams")
@@ -123,6 +137,11 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             root.setOnApplyWindowInsetsListener { v, insets ->
                 applyNavBarPadding(v, insets)
                 insets
+            }
+            // insets 派發常在 layout 前（isLaidOut=false 時先全額墊）；layout 完成後
+            // 用實際幾何重算一次，把 One UI 的多餘 padding 修掉（值不變就不再觸發）。
+            root.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+                v.rootWindowInsets?.let { applyNavBarPadding(v, it) }
             }
         }
 
