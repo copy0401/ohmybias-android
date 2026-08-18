@@ -177,10 +177,6 @@ class MainActivity : Activity() {
         cheat.typeface = Typeface.MONOSPACE
         root.addView(cheat)
 
-        // ── 進階 ──
-        root.addView(sectionTitle("進階"))
-        root.addView(toggle("Debug 記錄", Prefs.debugMode) { Prefs.debugMode = it })
-
         val scroll = ScrollView(this)
         scroll.addView(root)
         // targetSdk 36 強制 edge-to-edge（Android 15+ 系統列透明、內容延伸到底下）—

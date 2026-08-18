@@ -119,7 +119,6 @@ class CINTable {
         loadCharMaps()
         // 5. maxCodeLength
         recomputeMaxCodeLength()
-        DebugLog.log { "OhMyBiasIM: maxCodeLength = $maxCodeLength" }
     }
 
     /// 從 .cin 文字檔載入（先編到暫存 .bin）— 測試與現場使用。
@@ -153,7 +152,7 @@ class CINTable {
 
     private fun loadBin(path: String) {
         val d = BinData.mapped(path) ?: run {
-            DebugLog.log { "CINTable loadBin failed: $path" }; return
+            return
         }
         parseBinData(d)
     }
@@ -285,7 +284,7 @@ class CINTable {
         // 檔案大小限制
         if (!f.exists()) return
         if (f.length() > 100_000_000L) {
-            DebugLog.log { "CIN file too large: ${f.length()} bytes, skipped" }; return
+            return
         }
         val content = try { f.readText(Charsets.UTF_8) } catch (e: Exception) { return }
         var inChardef = false
@@ -344,7 +343,6 @@ class CINTable {
             for (key in json.keys()) r[key] = json.getString(key)
             r
         } catch (e: Exception) {
-            DebugLog.log { "CINTable loadCharMaps $name: ${e.message}" }
             null
         }
     }

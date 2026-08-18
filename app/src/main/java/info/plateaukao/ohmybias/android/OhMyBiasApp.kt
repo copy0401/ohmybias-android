@@ -2,7 +2,6 @@ package info.plateaukao.ohmybias.android
 
 import android.app.Application
 import info.plateaukao.ohmybias.shared.AppEnv
-import info.plateaukao.ohmybias.shared.DebugLog
 import java.io.File
 
 /// Application：初始化共享目錄、複製 assets 資料檔、掛上偏好與剪貼簿橋接。
@@ -16,7 +15,6 @@ class OhMyBiasApp : Application() {
         copyAssetsIfNeeded()
         Prefs.install(this)
         ClipboardProcessor.install(this)
-        DebugLog.isEnabled = { Prefs.debugMode }
     }
 
     /// assets → sharedDir（引擎層統一走檔案路徑）。
@@ -44,7 +42,6 @@ class OhMyBiasApp : Application() {
                 }
             } catch (e: Exception) {
                 allOk = false
-                DebugLog.log { "copyAssets $name: ${e.message}" }
             }
         }
         // 全數成功才記 stamp — 失敗的下次啟動會重試

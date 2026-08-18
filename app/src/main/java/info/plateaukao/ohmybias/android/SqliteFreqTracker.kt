@@ -3,7 +3,6 @@ package info.plateaukao.ohmybias.android
 import android.database.sqlite.SQLiteDatabase
 import android.os.Process
 import info.plateaukao.ohmybias.shared.AppEnv
-import info.plateaukao.ohmybias.shared.DebugLog
 import info.plateaukao.ohmybias.shared.FreqTracker
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -69,7 +68,6 @@ class SqliteFreqTracker : FreqTracker {
                 for ((k, v) in p) if (k !in pinnedCache) pinnedCache[k] = v
             }
         } catch (e: Exception) {
-            DebugLog.log { "SqliteFreqTracker open failed: ${e.message}" }
         } finally {
             loaded.countDown()  // 開檔失敗也要放行查詢（純記憶體運作）
         }
@@ -148,7 +146,6 @@ class SqliteFreqTracker : FreqTracker {
             }
             d.setTransactionSuccessful()
         } catch (e: Exception) {
-            DebugLog.log { "SqliteFreqTracker flush: ${e.message}" }
         } finally {
             try { d.endTransaction() } catch (_: Exception) {}
         }
@@ -164,9 +161,7 @@ class SqliteFreqTracker : FreqTracker {
         }
         try {
             executor.submit { writePending(snapshot) }.get(2, TimeUnit.SECONDS)
-        } catch (e: Exception) {
-            DebugLog.log { "SqliteFreqTracker flushAll: ${e.message}" }
-        }
+        } catch (_: Exception) {}
     }
 
     // MARK: - Query（純記憶體 — 每鍵擊皆呼叫，不碰 SQLite）
@@ -189,9 +184,7 @@ class SqliteFreqTracker : FreqTracker {
         executor.execute {
             try {
                 db?.execSQL("INSERT OR REPLACE INTO pinned(code,chars) VALUES(?,?)", arrayOf(code, chars.joinToString("")))
-            } catch (e: Exception) {
-                DebugLog.log { "SqliteFreqTracker pin: ${e.message}" }
-            }
+            } catch (_: Exception) {}
         }
     }
 
@@ -201,9 +194,7 @@ class SqliteFreqTracker : FreqTracker {
         executor.execute {
             try {
                 db?.execSQL("DELETE FROM pinned WHERE code=?", arrayOf(code))
-            } catch (e: Exception) {
-                DebugLog.log { "SqliteFreqTracker unpin: ${e.message}" }
-            }
+            } catch (_: Exception) {}
         }
     }
 
@@ -224,9 +215,7 @@ class SqliteFreqTracker : FreqTracker {
                     pinnedCache.clear()
                     pinnedCache.putAll(p)
                 }
-            } catch (e: Exception) {
-                DebugLog.log { "SqliteFreqTracker reloadPinned: ${e.message}" }
-            }
+            } catch (_: Exception) {}
         }
     }
 
@@ -264,7 +253,6 @@ class SqliteFreqTracker : FreqTracker {
             d.execSQL("DELETE FROM bigram WHERE n<=1 AND rowid NOT IN (SELECT rowid FROM bigram ORDER BY n DESC LIMIT 5000)")
             d.setTransactionSuccessful()
         } catch (e: Exception) {
-            DebugLog.log { "SqliteFreqTracker decay: ${e.message}" }
         } finally {
             try { d.endTransaction() } catch (_: Exception) {}
         }
@@ -281,9 +269,7 @@ class SqliteFreqTracker : FreqTracker {
             try {
                 db?.execSQL("DELETE FROM freq")
                 db?.execSQL("DELETE FROM bigram")
-            } catch (e: Exception) {
-                DebugLog.log { "SqliteFreqTracker reset: ${e.message}" }
-            }
+            } catch (_: Exception) {}
         }
     }
 }

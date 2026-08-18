@@ -37,7 +37,6 @@ class ZhuyinLookup {
         if (!MemoryBudget.canAfford(MemoryBudget.zhuyinLookup)) return
         if (loadBins()) {
             loaded = true
-            DebugLog.log { "OhMyBiasIM: zhuyin bins mmapped" }
             return
         }
         loadJsonFallback()
@@ -62,7 +61,7 @@ class ZhuyinLookup {
 
     private fun loadJsonFallback() {
         val f = dataFile("zhuyin_data.json") ?: run {
-            DebugLog.log { "ZhuyinLookup: zhuyin data not found" }; return
+            return
         }
         try {
             val json = JSONObject(f.readText(Charsets.UTF_8))
@@ -70,7 +69,6 @@ class ZhuyinLookup {
             charToZhuyins = parseStringListMap(json.getJSONObject("char_to_zhuyins"))
             loaded = true
         } catch (e: Exception) {
-            DebugLog.log { "ZhuyinLookup: zhuyin_data.json parse failed: ${e.message}" }
             return
         }
         dataFile("char_freq.json")?.let { ff ->
@@ -79,18 +77,13 @@ class ZhuyinLookup {
                 val m = HashMap<String, Int>()
                 for (k in json.keys()) m[k] = json.getInt(k)
                 charFreq = m
-            } catch (e: Exception) {
-                DebugLog.log { "ZhuyinLookup read char_freq: ${e.message}" }
-            }
+            } catch (_: Exception) {}
         }
-        DebugLog.log { "OhMyBiasIM: zhuyin json loaded — ${zhuyinToChars.size} readings, ${charToZhuyins.size} chars" }
         dataFile("pinyin_data.json")?.let { pf ->
             try {
                 val json = JSONObject(pf.readText(Charsets.UTF_8))
                 pinyinToChars = parseStringListMap(json.getJSONObject("pinyin_to_chars"))
-            } catch (e: Exception) {
-                DebugLog.log { "ZhuyinLookup read pinyin_data: ${e.message}" }
-            }
+            } catch (_: Exception) {}
         }
     }
 

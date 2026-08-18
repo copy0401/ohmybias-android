@@ -91,11 +91,6 @@ object Prefs : IMEPreferences {
         get() = sp.getFloat("keyboardHeightScale", 1.0f)
         set(v) = sp.edit().putFloat("keyboardHeightScale", v.coerceIn(0.85f, 1.4f)).apply()
 
-    /// Debug 記錄至 sharedDir/debug.log
-    var debugMode: Boolean
-        get() = sp.getBoolean("debugMode", false)
-        set(v) = sp.edit().putBoolean("debugMode", v).apply()
-
     /// 詞庫開關 — 極簡版僅萌典詞組，預設開啟
     override fun domainEnabled(key: String): Boolean =
         if (sp.contains(key)) sp.getBoolean(key, false) else key == "domain_phrases"
