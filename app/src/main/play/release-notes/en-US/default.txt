@@ -1,5 +1,4 @@
-0.3.1 — fixes and improvements
-• Fix: system navigation bar covered the bottom key row on Android 15/16
-• New built-in default theme (black & white); "restore built-in" now restores it
-• New "settings" button in the phrases panel; saved phrases take effect immediately
-• Wording updates in settings (theme, phrases, appearance editor)
+0.3.2 — fixes and improvements
+• Fix: extra blank strip between the keyboard and the navigation bar on Samsung (One UI)
+• Fix: Android 17 keyboard-dismiss bar covered the bottom key row
+• Tap the composing code to commit it as-is (type English words without picking a candidate)
