@@ -25,10 +25,12 @@ import android.widget.TextView
 import info.plateaukao.ohmybias.MainActivity
 import info.plateaukao.ohmybias.android.Prefs
 import info.plateaukao.ohmybias.android.SqliteFreqTracker
+import info.plateaukao.ohmybias.shared.CINTable
 import info.plateaukao.ohmybias.shared.ClipboardBridge
 import info.plateaukao.ohmybias.shared.InputEngine
 import info.plateaukao.ohmybias.shared.InputEngineDelegate
 import info.plateaukao.ohmybias.shared.SkinSettings
+import kotlin.math.abs
 
 /// Android IME 主 service — InputEngine 的 Android delegate 實作。
 /// 對應 iOS 版 KeyboardViewController：按鍵事件 → InputEngine → delegate 回呼 → UI。
@@ -49,6 +51,11 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     private var builtForDark = false
     private var builtBodyHeight = 0
+    /// 建這組 view 時的皮膚世代 —— 設定頁匯入 .cskin 後（同 process）整個 view 要重建，
+    /// 否則候選列工具列與鍵面會用不同皮膚（工具列按鈕只在 CandidateBar 建構時讀一次）
+    private var builtSkinGeneration = -1
+    /// 引擎目前載入的字表世代 —— 設定頁匯入新 liu.cin 後要重載
+    private var loadedTableGeneration = CINTable.generation
 
     private val density get() = resources.displayMetrics.density
     private fun dp(v: Float): Int = (v * density).toInt()
@@ -64,8 +71,12 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         engine.scheduleBackgroundTasks()
         // 還原上次使用的語言模式（EN/中文）
         engine.setEnglishMode(Prefs.lastEnglishMode)
-        // 反查表（查碼提示/注音同音字）整表建立成本高 — 背景預熱，
-        // 免得第一次用到的那個按鍵卡住（取法 sweetlime 的 prefetchCache）
+        warmUpReverseCache()
+    }
+
+    /// 反查表（查碼提示/注音同音字）整表建立成本高 — 背景預熱，
+    /// 免得第一次用到的那個按鍵卡住（取法 sweetlime 的 prefetchCache）
+    private fun warmUpReverseCache() {
         Thread({
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
             engine.cinTable.warmUpReverseCache()
@@ -74,8 +85,18 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        // 離開輸入框時把未寫入的字頻紀錄落盤 — process 被殺也不掉學習資料
+        // 離開輸入框時把未寫入的字頻紀錄排進落盤佇列 — process 被殺也不掉學習資料
         engine.freqTracker.flushAll()
+    }
+
+    /// 輸入階段結束（換輸入框／換 app）—— 未送出的組字狀態不能跨欄位存活，
+    /// 否則新欄位的第一個空白鍵會把上一個欄位遺留的候選字送出去，
+    /// 還會把它記成新欄位的字頻／bigram 樣本。
+    override fun onFinishInput() {
+        super.onFinishInput()
+        engine.resetSession()
+        showingSuggestions = false
+        refreshIdleBar()
     }
 
     override fun onDestroy() {
@@ -123,6 +144,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         KeyboardTheme.isDark = isDarkMode()
         KeyboardTheme.keyFontScale = minOf(Prefs.keyboardHeightScale, 1.2f)
         builtForDark = KeyboardTheme.isDark
+        builtSkinGeneration = SkinSettings.shared.generation
 
         val root = LinearLayout(this)
         root.orientation = LinearLayout.VERTICAL
@@ -205,13 +227,22 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        // 深淺色、轉向或高度設定改變時重建整個鍵盤（顏色/尺寸在建構時解析；
-        // 直接改 layoutParams IME 視窗不會可靠重量測）
-        if (isDarkMode() != builtForDark || keyboardBodyHeight() != builtBodyHeight) {
+        // 設定頁剛匯入新字表（同 process）— 重載，否則鍵盤一直用舊表直到 process 重啟
+        if (CINTable.generation != loadedTableGeneration) {
+            loadedTableGeneration = CINTable.generation
+            engine.loadTable()
+            warmUpReverseCache()
+        }
+        // 深淺色、轉向、高度或皮膚改變時重建整個鍵盤（顏色/尺寸/工具列按鈕都在建構時
+        // 解析；直接改 layoutParams IME 視窗不會可靠重量測）
+        if (isDarkMode() != builtForDark || keyboardBodyHeight() != builtBodyHeight ||
+            SkinSettings.shared.generation != builtSkinGeneration
+        ) {
             setInputView(onCreateInputView())
         }
         keyboardView?.syncSessionState(shouldOfferSwitching() && !Prefs.hideGlobeKey, returnLabel(info))
         refreshIdleBar()
+        syncPageWithEngine()
     }
 
     private fun shouldOfferSwitching(): Boolean = try {
@@ -448,6 +479,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         if (engine.isPinyinMode) { engine.handlePinyinSpace(); return }
         if (engine.isZhuyinMode) { engine.handleZhuyinSpace(); return }
         if (engine.composing.isEmpty() && !showingSuggestions) {
+            // 唯一候選自動送出後習慣性補的那一下空白要吃掉，不輸出多餘空格。
+            // （組字為空的空白鍵不會進引擎的 handleSpace，所以在這裡問）
+            if (engine.consumeEatNextSpace()) return
             commitToEditor(" ")
             return
         }
@@ -525,12 +559,42 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     private fun textAfterCursor(): String =
         currentInputConnection?.getTextAfterCursor(1000, 0)?.toString() ?: ""
 
-    /// 游標相對移動（Java char 單位）
+    /// 游標相對移動（±n 個 code point，不會切開 surrogate pair — emoji 被切開後
+    /// 下一次刪除／送字會弄壞那個字）。
+    /// 主路徑用 ExtractedText 算絕對位置直接 setSelection；取不到的編輯器
+    /// （部分 WebView/Compose 欄位回 null）退回送方向鍵，由編輯器自己算邊界 ——
+    /// 舊版在這裡直接 return，成對標點的游標就留在右半邊外面而不是中間。
     private fun moveCursor(offset: Int) {
         val ic = currentInputConnection ?: return
-        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
-        val pos = (extracted.selectionStart + offset).coerceIn(0, extracted.text?.length ?: 0)
-        ic.setSelection(pos, pos)
+        if (offset == 0) return
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0)
+        val text = extracted?.text
+        // selectionStart 是相對於 startOffset 的視窗座標 — 長文件不從 0 起算，
+        // 直接當絕對位置會把游標丟到別的地方
+        if (extracted != null && text != null && extracted.selectionStart in 0..text.length) {
+            val target = offsetByCodePoints(text.toString(), extracted.selectionStart, offset)
+            val absolute = extracted.startOffset + target
+            if (absolute >= 0) {
+                ic.setSelection(absolute, absolute)
+                return
+            }
+        }
+        val keyCode = if (offset < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        repeat(minOf(abs(offset), 1000)) { sendDownUpKey(keyCode) }
+    }
+
+    /// 自 from（UTF-16 index）位移 n 個 code point，越界夾到頭尾
+    private fun offsetByCodePoints(text: String, from: Int, n: Int): Int {
+        val total = text.codePointCount(0, text.length)
+        val cur = text.codePointCount(0, from)
+        return text.offsetByCodePoints(0, (cur + n).coerceIn(0, total))
+    }
+
+    private fun sendDownUpKey(keyCode: Int) {
+        val ic = currentInputConnection ?: return
+        val now = SystemClock.uptimeMillis()
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode, 0))
+        ic.sendKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode, 0))
     }
 
     // MARK: - InputEngineDelegate（Android 事件皆在主執行緒，直接更新 UI）
@@ -542,7 +606,17 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     }
 
     override fun engineDidUpdateCandidates(candidates: List<String>) {
-        if (showingSuggestions) return
+        // 送字時引擎會先清候選、之後才（在有結果時）發聯想。聯想顯示中收到的這個清空
+        // 不能一律吞掉 —— 否則下一輪沒有聯想時，候選列會留著上一輪的過期聯想，
+        // 而引擎的候選已空，點下去每一個都沒反應。清掉後若隨即有新聯想，
+        // engineDidSuggest 會在同一個呼叫堆疊裡補上，畫面不會閃。
+        if (showingSuggestions) {
+            if (candidates.isEmpty()) {
+                showingSuggestions = false
+                refreshIdleBar()
+            }
+            return
+        }
         candidateBar?.setCandidates(candidates, suggestions = false)
         if (candidates.isEmpty() && engine.composing.isEmpty()) {
             refreshIdleBar()
@@ -556,7 +630,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun engineDidCommitPair(left: String, right: String) {
         commitToEditor(left + right)
-        moveCursor(-right.length)
+        // moveCursor 以 code point 為單位 — 游標要停在成對標點中間
+        moveCursor(-right.codePointCount(0, right.length))
     }
 
     override fun engineDidClearComposing() {
@@ -588,6 +663,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     private fun syncPageWithEngine() {
         val kv = keyboardView ?: return
+        // 使用者從工具列開的面板（符號/emoji/顏文字/常用語/123）優先 —— 注音模式是
+        // 黏著旗標，不擋掉的話每次按鍵後都會把面板搶回注音頁，面板等於打不開
+        if (kv.isShowingToolbarPage) return
         val wantZhuyin = engine.isZhuyinMode
         if (wantZhuyin && kv.currentPage != KeyboardView.PageKind.ZHUYIN) {
             kv.currentPage = KeyboardView.PageKind.ZHUYIN

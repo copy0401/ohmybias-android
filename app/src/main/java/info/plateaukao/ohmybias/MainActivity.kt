@@ -344,18 +344,42 @@ class MainActivity : Activity() {
         }
     }
 
+    /// liu.cin 動輒數 MB，來源又可能是雲端硬碟（下載時間不定）—— 複製＋編譯全放背景執行緒，
+    /// 免得主執行緒卡到 ANR。
     private fun handleCinImport(uri: Uri) {
+        importMessage.text = "匯入中…"
+        Thread({
+            val message = importCin(uri)
+            runOnUiThread {
+                importMessage.text = message
+                refreshTableStatus()
+            }
+        }, "ohmybias-import").start()
+    }
+
+    /// 全程寫暫存檔、成功才 rename 就位：
+    /// - 中途失敗（來源讀到一半斷線、不是有效 .cin）不會動到現有字表；
+    /// - rename 不影響鍵盤已 mmap 的舊 liu.bin —— 舊 inode 活到它重載為止，
+    ///   不會讀到寫一半的內容，檔案變短也不會 SIGBUS。
+    private fun importCin(uri: Uri): String {
+        val cin = File(AppEnv.cinPath)
+        val bin = File(AppEnv.sharedDir, "liu.bin")
+        val cinTmp = File(cin.path + ".tmp")
+        val binTmp = File(bin.path + ".tmp")
         try {
-            val dst = File(AppEnv.cinPath)
             contentResolver.openInputStream(uri)?.use { input ->
-                dst.outputStream().use { input.copyTo(it) }
-            } ?: run { importMessage.text = "讀取失敗"; return }
-            val binDst = AppEnv.sharedDir + "/liu.bin"
-            val count = CINCompiler.compile(dst.path, binDst)
-            importMessage.text = if (count > 0) "已編譯 $count 個字碼" else "編譯失敗 — 請確認是有效的 .cin 檔"
-            refreshTableStatus()
+                cinTmp.outputStream().use { input.copyTo(it) }
+            } ?: return "讀取失敗"
+            val count = CINCompiler.compile(cinTmp.path, binTmp.path)
+            if (count <= 0) return "編譯失敗 — 請確認是有效的 .cin 檔"
+            // bin 是實際被查的檔，最後才就位 = 整個匯入的提交點
+            if (!cinTmp.renameTo(cin) || !binTmp.renameTo(bin)) return "寫入失敗 — 儲存空間可能不足"
+            CINTable.bumpGeneration()  // 鍵盤同 process — 下次進輸入框自動重載
+            return "已編譯 $count 個字碼"
         } catch (e: Exception) {
-            importMessage.text = "匯入失敗：${e.message}"
+            return "匯入失敗：${e.message}"
+        } finally {
+            cinTmp.delete(); binTmp.delete()
         }
     }
 

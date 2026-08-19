@@ -131,6 +131,31 @@ class InputEngine(
     fun clearCandidates() = sync { _currentCandidates = emptyList() }
     fun setCandidates(c: List<String>) = sync { _currentCandidates = c }
 
+    /// 唯一候選自動送出後，使用者常會習慣性再按一下空白 —— 那一下要吃掉，不多出空格。
+    /// 組字為空的空白鍵不會進 handleSpace（service 直接上屏），故由 service 先問這裡。
+    fun consumeEatNextSpace(): Boolean = sync {
+        if (!_eatNextSpace) return@sync false
+        _eatNextSpace = false
+        true
+    }
+
+    /// 換輸入框／結束輸入時清空整個組字階段狀態。未送出的組字碼、候選與查詢模式旗標
+    /// 都不能跨欄位存活 —— 否則在新欄位按的第一個空白會把上一個欄位遺留的候選字送出去，
+    /// 還會把它記成新欄位的字頻／bigram 樣本。中英模式與已學到的字頻不受影響。
+    /// 不發 toast／不回呼 delegate：此時鍵盤正在收起，UI 由 service 自己刷新。
+    fun resetSession(): Unit = sync {
+        _isPinMode = false; _pinCode = ""; _pinPicked = mutableListOf()
+        _isInCommaCommand = false; _commaCommandBuffer = ""
+        _isZhuyinMode = false; clearZhuyinSlots()
+        _isPinyinMode = false; _pinyinBuffer = ""
+        _isSameSoundMode = false; _sameSoundBase = ""
+        _composing = ""; _currentCandidates = emptyList(); _isWildcard = false
+        _eatNextSpace = false
+        _snapComposing = ""; _snapCandidates = emptyList(); _snapIsWildcard = false
+        // 語境（bigram/trigram/聯想）也屬於上一個欄位
+        _lastCommitted = ""; _prevCommitted = ""; _recentCommitted = ""
+    }
+
     private val currentModeNameImpl: String
         get() {
             if (_isZhuyinMode) return "zh"
@@ -151,6 +176,8 @@ class InputEngine(
 
     fun handleLetter(char: String) = sync {
         _snapComposing = _composing; _snapCandidates = _currentCandidates; _snapIsWildcard = _isWildcard
+        // 又打了字 → 上一次自動送出後要吃掉的那個空白已經不適用
+        _eatNextSpace = false
 
         // Pin 模式：字母鍵累積要固定的碼
         if (_isPinMode) {
@@ -211,7 +238,6 @@ class InputEngine(
 
     fun handleSpace(): Unit = sync {
         if (_composing.isEmpty()) return@sync
-        if (_eatNextSpace) { _eatNextSpace = false; return@sync }
         // Pin 模式：空白確認固定順序
         if (_isPinMode) {
             if (_pinCode.isNotEmpty() && _pinPicked.isNotEmpty()) {

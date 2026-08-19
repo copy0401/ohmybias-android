@@ -7,6 +7,19 @@ import java.util.UUID
 /// 統一 CIN 字表 — mmap 二進位（CINM，經 CINCompiler）＋ .cin 文字 fallback。
 /// 二進位路徑：liu.bin 以 mmap 載入（零複製）；文字路徑：解析 .cin 進 overlay dict。
 class CINTable {
+
+    companion object {
+        /// 字表世代 —— 設定頁匯入新 liu.cin 後 +1。鍵盤與設定頁同 process，
+        /// service 據此在下次進輸入框時重載（同 SkinSettings.generation 的做法）。
+        @Volatile
+        var generation: Int = 0
+            private set
+
+        fun bumpGeneration() {
+            generation += 1
+        }
+    }
+
     // MARK: - mmap 二進位（liu.bin）
     private var binData: BinData? = null
     private var entryCount = 0
@@ -21,6 +34,11 @@ class CINTable {
     // MARK: - 反查快取（lazy；可由背景執行緒預熱 — @Volatile + 建表鎖保護發佈）
     private val cacheLock = Any()
 
+    /// 本 instance 的載入世代 — 每次 reload()/load() +1。背景預熱走遍整表要一段時間，
+    /// 期間若字表被換掉（匯入新表、,,RL），算出來的是舊表的反查結果，發佈上去就會一直
+    /// 給錯的字根提示 — 故發佈前先確認世代沒變，變了就不快取（下次存取自然重建）。
+    @Volatile private var loadGeneration = 0
+
     @Volatile private var _reverseTable: MutableMap<String, MutableList<String>>? = null
     private val reverseTable: Map<String, List<String>>
         get() {
@@ -28,6 +46,7 @@ class CINTable {
             if (!MemoryBudget.canAfford(MemoryBudget.reverseTable)) return emptyMap()
             synchronized(cacheLock) {
                 _reverseTable?.let { return it }
+                val builtFor = loadGeneration
                 val r = HashMap<String, MutableList<String>>()
                 val d = binData
                 if (d != null) {
@@ -37,7 +56,7 @@ class CINTable {
                     }
                 }
                 for ((code, chars) in overlay) for (c in chars) r.getOrPut(c) { mutableListOf() }.add(code)
-                _reverseTable = r
+                if (builtFor == loadGeneration) _reverseTable = r
                 return r
             }
         }
@@ -96,6 +115,7 @@ class CINTable {
     // MARK: - 載入
 
     fun reload() {
+        loadGeneration += 1
         binData = null; entryCount = 0; overlay = HashMap()
         _reverseTable = null; _shortestCodes = null; _longestCodes = null
         t2s = emptyMap(); s2t = emptyMap()
@@ -123,6 +143,7 @@ class CINTable {
 
     /// 從 .cin 文字檔載入（先編到暫存 .bin）— 測試與現場使用。
     fun load(cinPath: String) {
+        loadGeneration += 1
         val tmp = System.getProperty("java.io.tmpdir") + "/cin_" + UUID.randomUUID() + ".bin"
         CINCompiler.compile(cinPath, tmp)
         binData = null; entryCount = 0; overlay = HashMap()
@@ -188,8 +209,9 @@ class CINTable {
 
     private fun readChars(d: BinData, i: Int): List<String> {
         val entryOff = valsOff + i * 4
-        if (entryOff < 0 || entryOff + 3 > d.count) return emptyList()
-        val vOff = d.u16(entryOff)
+        if (entryOff < 0 || entryOff + 4 > d.count) return emptyList()
+        // offset 是 u24：低 16 位在前兩 byte、高 8 位在第 4 byte（見 CINCompiler）
+        val vOff = d.u16(entryOff) or (d.u8(entryOff + 3) shl 16)
         val vCnt = d.u8(entryOff + 2)
         if (vCnt <= 0) return emptyList()
         val firstOff = charsOff + vOff * 4

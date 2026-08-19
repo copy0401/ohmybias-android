@@ -88,18 +88,18 @@ object CINCompiler {
             writeU16(codeIdx, len)
         }
 
-        // Val index（4-byte stride：u16 off + u8 cnt + u8 保留）
+        // Val index（4-byte stride：u24 off（低 16 位 + 第 4 byte 為高 8 位）+ u8 cnt）
+        //
+        // 第 4 byte 原本恆為 0（保留），offset 只有 u16 — 但真正的嘸蝦米字表 chars 區
+        // 遠超過 65,535 個 code point，超出的 entry 全被寫成 0xFFFF，讀出來是別的字。
+        // 改把保留 byte 當高位元組（上限 16,777,215）：舊檔該 byte 為 0 → 讀值不變，
+        // 新舊讀取器對「原本就存得下」的檔案完全一致。
         val valIdx = ByteArrayOutputStream()
         for ((off, cnt) in valEntries) {
-            if (off > 0xFFFF) {
-                writeU16(valIdx, 0xFFFF)
-                valIdx.write(minOf(cnt, 255))
-                valIdx.write(0)
-                continue
-            }
-            writeU16(valIdx, off)
+            if (off > 0xFFFFFF) return 0  // 超出格式上限 — 寧可失敗，不要靜靜編出錯字表
+            writeU16(valIdx, off and 0xFFFF)
             valIdx.write(minOf(cnt, 255))
-            valIdx.write(0)
+            valIdx.write((off shr 16) and 0xFF)
         }
 
         // 區段位移

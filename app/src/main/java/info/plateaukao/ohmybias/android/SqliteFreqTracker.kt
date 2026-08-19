@@ -17,6 +17,31 @@ import java.util.concurrent.TimeUnit
 /// 開 WAL 讓寫入不擋讀取；DB 常駐不關（IME 長生命週期）。記憶體是即時權威資料、
 /// DB 是持久層：decay 兩邊各自套同因子，下次啟動自 DB 還原。
 class SqliteFreqTracker : FreqTracker {
+
+    companion object {
+        /// pinned.chars 的分隔符（US, U+001F）。舊版是無分隔串接、讀回來逐 UTF-16 unit 切，
+        /// 多字候選（.cin 詞組）與非 BMP 字（如中日韓擴充 B 區）重開 process 就被拆爛。
+        /// 新格式一律以分隔符開頭，才能和舊資料明確區分。
+        private const val PIN_SEP = "\u001F"
+
+        fun encodePinned(chars: List<String>): String = PIN_SEP + chars.joinToString(PIN_SEP)
+
+        fun decodePinned(s: String): List<String> {
+            if (s.startsWith(PIN_SEP)) {
+                return s.substring(PIN_SEP.length).split(PIN_SEP).filter { it.isNotEmpty() }
+            }
+            // 舊格式（含內建的 hj → 手乎）：逐 code point 切 —— 至少不切開 surrogate pair
+            val r = ArrayList<String>()
+            var i = 0
+            while (i < s.length) {
+                val cp = s.codePointAt(i)
+                r.add(String(Character.toChars(cp)))
+                i += Character.charCount(cp)
+            }
+            return r
+        }
+    }
+
     /// 只在 executor 執行緒上存取（openAndLoad 先於其他工作排入）
     private var db: SQLiteDatabase? = null
     private var recordCount = 0
@@ -47,12 +72,15 @@ class SqliteFreqTracker : FreqTracker {
             d.execSQL("CREATE TABLE IF NOT EXISTS bigram(prev TEXT, char TEXT, n INTEGER, PRIMARY KEY(prev,char))")
             d.execSQL("CREATE TABLE IF NOT EXISTS pinned(code TEXT PRIMARY KEY, chars TEXT NOT NULL)")
             // 預設固定排序（常見同碼字衝突）
-            d.execSQL("INSERT OR IGNORE INTO pinned(code,chars) VALUES('hj','手乎')")
+            d.execSQL(
+                "INSERT OR IGNORE INTO pinned(code,chars) VALUES('hj',?)",
+                arrayOf(encodePinned(listOf("手", "乎"))),
+            )
             val f = loadCounts(d, "SELECT code,char,n FROM freq")
             val b = loadCounts(d, "SELECT prev,char,n FROM bigram")
             val p = HashMap<String, List<String>>()
             d.rawQuery("SELECT code, chars FROM pinned", null).use { c ->
-                while (c.moveToNext()) p[c.getString(0)] = c.getString(1).map { it.toString() }
+                while (c.moveToNext()) p[c.getString(0)] = decodePinned(c.getString(1))
             }
             synchronized(lock) {
                 db = d
@@ -83,7 +111,10 @@ class SqliteFreqTracker : FreqTracker {
         return r
     }
 
-    /// 首次查詢若早於載入完成則短暫等待（實務上載入遠快於第一個按鍵）
+    /// 等 DB 載入完成 — 只用在 ,,PIN/,,UNPIN 這種一次性使用者指令上：
+    /// pin/unpin 若搶在 openAndLoad 前面改快取，會被之後的載入合併蓋回去。
+    /// **不可**用在查詢路徑：那是每個按鍵都會走的，主執行緒等不起
+    /// （查詢純走記憶體，載入未完成頂多是前幾個按鍵少了歷史字頻，排序略有差異）。
     private fun awaitLoaded() {
         try { loaded.await(500, TimeUnit.MILLISECONDS) } catch (_: InterruptedException) {}
     }
@@ -151,7 +182,12 @@ class SqliteFreqTracker : FreqTracker {
         }
     }
 
-    /// 送出所有未寫入紀錄並短暫等待完成 — service 收鍵盤/銷毀時呼叫，保住學習資料
+    /// 送出所有未寫入紀錄 — service 收鍵盤/銷毀時呼叫，保住學習資料。
+    ///
+    /// 不等待完成：呼叫點（onFinishInputView/onDestroy）在主執行緒上，而 executor 是
+    /// 序列佇列，前面可能正排著 decayDb（整表 UPDATE ＋兩次 rowid NOT IN 掃描）—
+    /// 等它等於每次收鍵盤都讓前景 app 凍住最久 2 秒。executor 執行緒不是 daemon，
+    /// service 銷毀後仍會把佇列跑完，紀錄不會掉。
     override fun flushAll() {
         val snapshot = synchronized(lock) {
             if (pending.isEmpty()) return
@@ -160,19 +196,17 @@ class SqliteFreqTracker : FreqTracker {
             s
         }
         try {
-            executor.submit { writePending(snapshot) }.get(2, TimeUnit.SECONDS)
+            executor.execute { writePending(snapshot) }
         } catch (_: Exception) {}
     }
 
     // MARK: - Query（純記憶體 — 每鍵擊皆呼叫，不碰 SQLite）
 
     override fun queryFreq(code: String): Map<String, Int> {
-        awaitLoaded()
         synchronized(lock) { return freqCache[code]?.toMap() ?: emptyMap() }
     }
 
     override fun queryBigram(prev: String): Map<String, Int> {
-        awaitLoaded()
         synchronized(lock) { return bigramCache[prev]?.toMap() ?: emptyMap() }
     }
 
@@ -183,7 +217,7 @@ class SqliteFreqTracker : FreqTracker {
         synchronized(lock) { pinnedCache[code] = chars }
         executor.execute {
             try {
-                db?.execSQL("INSERT OR REPLACE INTO pinned(code,chars) VALUES(?,?)", arrayOf(code, chars.joinToString("")))
+                db?.execSQL("INSERT OR REPLACE INTO pinned(code,chars) VALUES(?,?)", arrayOf(code, encodePinned(chars)))
             } catch (_: Exception) {}
         }
     }
@@ -198,8 +232,8 @@ class SqliteFreqTracker : FreqTracker {
         }
     }
 
+    /// 每次排序候選都會呼叫（= 每個按鍵）— 不等載入，純讀記憶體
     override fun pinnedChars(forCode: String): List<String>? {
-        awaitLoaded()
         synchronized(lock) { return pinnedCache[forCode] }
     }
 
@@ -209,7 +243,7 @@ class SqliteFreqTracker : FreqTracker {
             try {
                 val p = HashMap<String, List<String>>()
                 d.rawQuery("SELECT code, chars FROM pinned", null).use { c ->
-                    while (c.moveToNext()) p[c.getString(0)] = c.getString(1).map { it.toString() }
+                    while (c.moveToNext()) p[c.getString(0)] = decodePinned(c.getString(1))
                 }
                 synchronized(lock) {
                     pinnedCache.clear()

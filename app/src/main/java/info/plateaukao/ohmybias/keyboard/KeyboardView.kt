@@ -47,6 +47,9 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     private var keyButtons = mutableListOf<KeyButton>()
     private var rowsOfButtons = mutableListOf<List<KeyButton>>()
     private var pageBeforeToolbarToggle: PageKind? = null
+
+    /// 目前顯示的是工具列切過去的面板（再按一次會切回原頁）
+    val isShowingToolbarPage: Boolean get() = pageBeforeToolbarToggle != null
     private var panelView: CollectionPanelView? = null
     /// 建鍵時的皮膚世代 — 皮膚重載後才需要重建 KeySpec（滑動開關/版面選項）
     private var builtSkinGeneration = -1
