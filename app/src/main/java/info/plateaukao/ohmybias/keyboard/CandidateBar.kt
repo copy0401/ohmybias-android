@@ -12,6 +12,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import info.plateaukao.ohmybias.R
 import info.plateaukao.ohmybias.shared.SkinSettings
 
 /// 候選字列：左側 composing 碼、右側水平捲動候選字／聯想詞。
@@ -54,37 +55,35 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     /// 略過的編輯類動作，Android 依原始定義實作）。null = 不可實作 → 空白佔位。
     /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空；
     /// 32 起是本家自訂 ID，同步定義於鍵盤外觀編輯器 ohmybias-skin `data.js` TOOLBAR_ITEMS）
+    /// 圖示一律 Material Symbols Outlined 24px（Apache-2.0），tint 跟 toolbarColor；
+    /// 語意靠字才講得清的保留文字：米/英（要顯示目前模式）、簡、顏、ㄅ
     private fun item(forButtonID: Int): ToolbarItem? = when (forButtonID) {
-        1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings)
-        // U+2228 邏輯或 — 以數學軸垂直置中，與 ←/→ 同基準；
-        // 原 U+2304 ⌄ 箭頭符貼著字面上緣畫，在列裡看起來偏高不置中
-        2 -> ToolbarItem("∨", "收折鍵盤", KeyAction.DismissKeyboard)
+        1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings, iconRes = R.drawable.ic_tb_settings)
+        2 -> ToolbarItem("∨", "收折鍵盤", KeyAction.DismissKeyboard, iconRes = R.drawable.ic_tb_keyboard_hide)
         3 -> ToolbarItem("米", "中英切換", KeyAction.ToggleLanguage, isLanguage = true)
         4 -> ToolbarItem("簡", "簡繁切換", KeyAction.ToggleSimpTrad)
-        5 -> ToolbarItem("♥︎", "常用語", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.PHRASES))
-        7 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL))
-        8 -> ToolbarItem("☺︎", "Emoji", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.EMOJI))
+        5 -> ToolbarItem("♥︎", "常用語", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.PHRASES), iconRes = R.drawable.ic_tb_favorite)
+        7 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL), iconRes = R.drawable.ic_tb_emoji_symbols)
+        8 -> ToolbarItem("☺︎", "Emoji", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.EMOJI), iconRes = R.drawable.ic_tb_mood)
         9 -> {
             val page = if (SkinSettings.shared.keyboardLayout == "row") KeyboardView.PageKind.NUMBERS
                        else KeyboardView.PageKind.NUMERIC9
-            ToolbarItem("123", "數字鍵盤", KeyAction.ToggleToolbarPage(page))
+            ToolbarItem("123", "數字鍵盤", KeyAction.ToggleToolbarPage(page), iconRes = R.drawable.ic_tb_123)
         }
-        10 -> ToolbarItem("全", "全選", KeyAction.SelectAll)
-        11 -> ToolbarItem("複", "複製", KeyAction.Copy)
-        12 -> ToolbarItem("剪", "剪下", KeyAction.Cut)
-        13 -> ToolbarItem("貼", "貼上", KeyAction.PasteClipboard)
-        14 -> ToolbarItem("↶", "復原", KeyAction.Undo)
-        15 -> ToolbarItem("↷", "重做", KeyAction.Redo)
-        16 -> ToolbarItem("←", "游標左移", KeyAction.CursorLeft)
-        17 -> ToolbarItem("→", "游標右移", KeyAction.CursorRight)
+        10 -> ToolbarItem("全", "全選", KeyAction.SelectAll, iconRes = R.drawable.ic_tb_select_all)
+        11 -> ToolbarItem("複", "複製", KeyAction.Copy, iconRes = R.drawable.ic_tb_content_copy)
+        12 -> ToolbarItem("剪", "剪下", KeyAction.Cut, iconRes = R.drawable.ic_tb_content_cut)
+        13 -> ToolbarItem("貼", "貼上", KeyAction.PasteClipboard, iconRes = R.drawable.ic_tb_content_paste)
+        14 -> ToolbarItem("↶", "復原", KeyAction.Undo, iconRes = R.drawable.ic_tb_undo)
+        15 -> ToolbarItem("↷", "重做", KeyAction.Redo, iconRes = R.drawable.ic_tb_redo)
+        16 -> ToolbarItem("←", "游標左移", KeyAction.CursorLeft, iconRes = R.drawable.ic_tb_chevron_left)
+        17 -> ToolbarItem("→", "游標右移", KeyAction.CursorRight, iconRes = R.drawable.ic_tb_chevron_right)
         26 -> ToolbarItem("顏", "顏文字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.KAOMOJIS))
         27 -> ToolbarItem("ㄅ", "注音查碼", KeyAction.EnterZhuyin)
-        29 -> ToolbarItem("123", "九宮格數字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.NUMERIC9))
-        30 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL))
-        // 32 = 本家自訂（Hamster 用到 31 為止）：語音輸入 — 切到系統語音輸入法，iOS 版無此能力。
-        // 麥克風沒有黑白的 Unicode 字（🎤/🎙 加 VS15 在 Android 一律走彩色 emoji 字型、
-        // 不吃 toolbarColor），改用系統內建圖示 ic_btn_speak_now 上色。
-        32 -> ToolbarItem("", "語音輸入", KeyAction.VoiceInput, iconRes = android.R.drawable.ic_btn_speak_now)
+        29 -> ToolbarItem("123", "九宮格數字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.NUMERIC9), iconRes = R.drawable.ic_tb_123)
+        30 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL), iconRes = R.drawable.ic_tb_emoji_symbols)
+        // 32 = 本家自訂（Hamster 用到 31 為止）：語音輸入 — 切到系統語音輸入法，iOS 版無此能力
+        32 -> ToolbarItem("", "語音輸入", KeyAction.VoiceInput, iconRes = R.drawable.ic_tb_mic)
         else -> null
     }
 
@@ -137,8 +136,9 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                 iv.setImageResource(item.iconRes)
                 iv.imageTintList = android.content.res.ColorStateList.valueOf(KeyboardTheme.toolbarColor)
                 iv.scaleType = ImageView.ScaleType.FIT_CENTER
-                // 6dp 內縮 — 量過：圖示畫出來 50px 高，旁邊 19sp 的字樣 47px，看起來同一級
-                val ip = dp(6f)
+                // 11dp 內縮 → 圖示畫 24dp（46dp 列高 - 兩側 11dp）；Material Symbols
+                // 24dp 框內建 2-3dp 留白，光學高度 ~19dp，與旁邊 19sp 文字鍵同一級
+                val ip = dp(11f)
                 iv.setPadding(ip, ip, ip, ip)
                 iv.contentDescription = item.label
                 iv.isClickable = true
