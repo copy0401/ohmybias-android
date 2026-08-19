@@ -1,4 +1,8 @@
-0.3.2 — fixes and improvements
-• Fix: extra blank strip between the keyboard and the navigation bar on Samsung (One UI)
-• Fix: Android 17 keyboard-dismiss bar covered the bottom key row
-• Tap the composing code to commit it as-is (type English words without picking a candidate)
+0.3.3 — important fixes
+• Wrong characters from the tail of large tables (a full Boshiamy table always hit this); rebuilt automatically on upgrade
+• Import runs in the background, applies without restarting the keyboard, and no longer destroys your table if it fails
+• First space after switching apps could commit a leftover candidate
+• Panels would not open in Zhuyin mode
+• Tapping a suggestion did nothing
+• Two spaces needed after auto-commit
+• Number key now uses a dialpad icon

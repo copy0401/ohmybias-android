@@ -9,6 +9,10 @@ import java.io.File
 ///    絕不預編或隨附 .bin — 它們是版權素材的衍生物。
 object CINCompiler {
 
+    /// CINM 格式版本（header offset 88）。0 = 未標版本的舊檔（val index 位移只有 u16，
+    /// 大字表尾端是錯字）；1 = u24 位移。舊檔的這個欄位本來就是 0，故可據此辨識並重編。
+    const val FORMAT_VERSION = 1
+
     /// 編譯 srcPath 的 cin → 寫出 bin 至 dstPath。回傳 entry 數，失敗回 0。
     fun compile(src: String, dst: String): Int {
         val content = try { File(src).readText(Charsets.UTF_8) } catch (e: Exception) { return 0 }
@@ -107,6 +111,7 @@ object CINCompiler {
         val valsOff = codesOff + codeIdx.size()
         val stringsOff = valsOff + valIdx.size()
         val charsOff = stringsOff + stringsBuf.size()
+        putU32(header, 88, FORMAT_VERSION.toLong())
         putU32(header, 96, codesOff.toLong())
         putU32(header, 100, valsOff.toLong())
         putU32(header, 104, stringsOff.toLong())

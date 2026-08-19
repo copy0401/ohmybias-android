@@ -27,6 +27,8 @@ class CINTable {
     private var valsOff = 0
     private var stringsOff = 0
     private var charsOff = 0
+    /// 已載入 .bin 的 CINM 格式版本（見 CINCompiler.FORMAT_VERSION）
+    private var binFormatVersion = 0
 
     // MARK: - 文字 fallback + overlay（extras — 小型 dict）
     private var overlay: MutableMap<String, MutableList<String>> = HashMap()
@@ -123,6 +125,19 @@ class CINTable {
         // 1. sharedDir 的 mmap 二進位
         val userBin = AppEnv.sharedDir + "/liu.bin"
         if (File(userBin).exists()) loadBin(userBin)
+        // 1b. 舊版編譯器產出的 .bin（格式版本 0）位移只有 u16，大字表尾端讀出來是錯字。
+        //     使用者不該為了拿到修正而重新匯入一次 — 手上還有 liu.cin 就直接重編。
+        if (entryCount > 0 && binFormatVersion < CINCompiler.FORMAT_VERSION &&
+            File(AppEnv.cinPath).exists()
+        ) {
+            // 編到暫存檔、成功才換掉 — 重編失敗就沿用舊檔（字是舊的錯法，但還能打）
+            val tmp = File("$userBin.tmp")
+            if (CINCompiler.compile(AppEnv.cinPath, tmp.path) > 0 && tmp.renameTo(File(userBin))) {
+                binData = null; entryCount = 0
+                loadBin(userBin)
+            }
+            tmp.delete()
+        }
         // 2. 無 .bin → 嘗試現場編譯 .cin → .bin
         if (entryCount == 0) {
             val cinPath = AppEnv.cinPath
@@ -187,6 +202,7 @@ class CINTable {
         }
         val cnLen = d.u16(20)
         if (cnLen > 0 && 22 + cnLen <= d.count) cinName = d.utf8String(22, cnLen)
+        binFormatVersion = d.u32(88).toInt()
         codesOff = d.u32(96).toInt()
         valsOff = d.u32(100).toInt()
         stringsOff = d.u32(104).toInt()
