@@ -68,7 +68,7 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         9 -> {
             val page = if (SkinSettings.shared.keyboardLayout == "row") KeyboardView.PageKind.NUMBERS
                        else KeyboardView.PageKind.NUMERIC9
-            ToolbarItem("123", "數字鍵盤", KeyAction.ToggleToolbarPage(page), iconRes = R.drawable.ic_tb_123)
+            ToolbarItem("123", "數字鍵盤", KeyAction.ToggleToolbarPage(page), iconRes = R.drawable.ic_tb_dialpad)
         }
         10 -> ToolbarItem("全", "全選", KeyAction.SelectAll, iconRes = R.drawable.ic_tb_select_all)
         11 -> ToolbarItem("複", "複製", KeyAction.Copy, iconRes = R.drawable.ic_tb_content_copy)
@@ -80,7 +80,7 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         17 -> ToolbarItem("→", "游標右移", KeyAction.CursorRight, iconRes = R.drawable.ic_tb_chevron_right)
         26 -> ToolbarItem("顏", "顏文字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.KAOMOJIS))
         27 -> ToolbarItem("ㄅ", "注音查碼", KeyAction.EnterZhuyin)
-        29 -> ToolbarItem("123", "九宮格數字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.NUMERIC9), iconRes = R.drawable.ic_tb_123)
+        29 -> ToolbarItem("123", "九宮格數字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.NUMERIC9), iconRes = R.drawable.ic_tb_dialpad)
         30 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL), iconRes = R.drawable.ic_tb_emoji_symbols)
         // 32 = 本家自訂（Hamster 用到 31 為止）：語音輸入 — 切到系統語音輸入法，iOS 版無此能力
         32 -> ToolbarItem("", "語音輸入", KeyAction.VoiceInput, iconRes = R.drawable.ic_tb_mic)
