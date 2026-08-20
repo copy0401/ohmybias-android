@@ -107,8 +107,11 @@ class InputEngine(
             "ㄚ", "ㄛ", "ㄜ", "ㄝ", "ㄞ", "ㄟ", "ㄠ", "ㄡ", "ㄢ", "ㄣ", "ㄤ", "ㄥ", "ㄦ",
         )
 
+        /// 半形括號/雙引號也配對（打程式碼、英文括號用）— 單引號刻意不配，
+        /// 英文縮寫（don't）與所有格（Daniel's）會被誤補成 don''t
         private val punctuationPairs: Map<String, String> = mapOf(
             "「" to "」", "（" to "）", "『" to "』", "【" to "】", "《" to "》", "〈" to "〉",
+            "(" to ")", "[" to "]", "{" to "}", "\"" to "\"",
         )
 
         private val sentenceEnders: Set<String> = setOf("。", "！", "？", ".", "!", "?", "\n", "；", ";")
@@ -130,6 +133,12 @@ class InputEngine(
 
     fun clearCandidates() = sync { _currentCandidates = emptyList() }
     fun setCandidates(c: List<String>) = sync { _currentCandidates = c }
+
+    /// 成對標點的右半，沒有配對則回 null。符號鍵（符號頁/符號面板/上下滑）是直接
+    /// 送字、不經組字流程的，仍要補右半 —— 否則同一個「【」用打碼打會配對、
+    /// 用符號鍵按就不會，行為不一致。
+    fun pairedRight(text: String): String? =
+        if (prefs.punctuationPairing && text.cpCount() == 1) punctuationPairs[text] else null
 
     /// 唯一候選自動送出後，使用者常會習慣性再按一下空白 —— 那一下要吃掉，不多出空格。
     /// 組字為空的空白鍵不會進 handleSpace（service 直接上屏），故由 service 先問這裡。

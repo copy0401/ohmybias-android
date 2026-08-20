@@ -227,6 +227,27 @@ class InputEngineTest {
         assertEquals("「」 pair", "「" to "」", mock.commitPairs.last())
     }
 
+    /// 符號鍵不經組字流程，改問 pairedRight —— 半形括號/雙引號也要配，單引號不配
+    @Test
+    fun pairedRightForSymbolKeys() {
+        val (engine, _) = makeEngine()
+        assertEquals("（ pairs", "）", engine.pairedRight("（"))
+        assertEquals("【 pairs", "】", engine.pairedRight("【"))
+        assertEquals("half-width ( pairs", ")", engine.pairedRight("("))
+        assertEquals("half-width [ pairs", "]", engine.pairedRight("["))
+        assertEquals("half-width { pairs", "}", engine.pairedRight("{"))
+        assertEquals("double quote pairs", "\"", engine.pairedRight("\""))
+        assertEquals("single quote does not pair", null, engine.pairedRight("'"))
+        assertEquals("right half does not pair", null, engine.pairedRight("）"))
+        assertEquals("multi-char does not pair", null, engine.pairedRight("（）"))
+    }
+
+    @Test
+    fun pairedRightRespectsPreference() {
+        val (engine, _) = makeEngine(MockPrefs(punctuationPairing = false))
+        assertEquals("pairing off → no right half", null, engine.pairedRight("（"))
+    }
+
     @Test
     fun commaCommandUnknown() {
         val (engine, mock) = makeEngine()

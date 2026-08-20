@@ -279,9 +279,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             is KeyAction.Backspace -> handleBackspaceKey()
             is KeyAction.Newline -> handleReturnKey()
             is KeyAction.Symbol -> {
-                // 符號頁直接送出（不經引擎組字）
+                // 符號頁直接送出（不經引擎組字）；成對標點仍補右半並把游標放中間
                 engine.handleEscape()
-                commitToEditor(action.s)
+                val right = engine.pairedRight(action.s)
+                if (right != null) commitPair(action.s, right) else commitToEditor(action.s)
             }
             is KeyAction.ToggleLanguage -> {
                 engine.toggleEnglishMode()
@@ -628,7 +629,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         commitToEditor(text)
     }
 
-    override fun engineDidCommitPair(left: String, right: String) {
+    override fun engineDidCommitPair(left: String, right: String) = commitPair(left, right)
+
+    private fun commitPair(left: String, right: String) {
         commitToEditor(left + right)
         // moveCursor 以 code point 為單位 — 游標要停在成對標點中間
         moveCursor(-right.codePointCount(0, right.length))
