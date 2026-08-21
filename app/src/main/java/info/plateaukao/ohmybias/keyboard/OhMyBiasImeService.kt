@@ -1,6 +1,7 @@
 package info.plateaukao.ohmybias.keyboard
 
 import android.annotation.SuppressLint
+import android.annotation.TargetApi
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
@@ -119,6 +120,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         }
     }
 
+    @TargetApi(35)
     private fun applyNavBarPadding(v: View, insets: WindowInsets) {
         // navigationBars ∪ tappableElement：Android 15/16 導覽列在 navigationBars；
         // Android 17 起收鍵盤箭頭/地球飾件列只算在 tappableElement（nav 只剩手勢 pill）

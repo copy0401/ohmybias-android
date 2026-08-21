@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         applicationId = "info.plateaukao.ohmybias"
-        minSdk = 29
+        minSdk = 28
         targetSdk = 36
         versionCode = 9
         versionName = "0.3.6"
