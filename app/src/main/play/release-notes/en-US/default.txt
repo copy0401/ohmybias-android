@@ -1,4 +1,4 @@
-0.3.6 — smaller download
-• 14% smaller install (888→767 KB): symbol / emoji / kaomoji panel data now ships as a bundled data file instead of compiled code
-• Removed never-used legacy launcher icons and extra metadata
-• From 0.3.5: suggestions and candidates overlay the toolbar, uppercase key-label option, table-reload race fix
+0.3.7 — Android 9 support, smaller again
+• Minimum requirement lowered from Android 10 to Android 9
+• 30% smaller install (767→534 KB): the phrase, bopomofo, pinyin and character-frequency data files use a new binary format — same data, same behaviour
+• From 0.3.6: panel data ships as a bundled data file, legacy launcher icons removed

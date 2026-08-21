@@ -20,7 +20,7 @@ iOS `Shared/`）。純 Kotlin、零第三方執行期依賴（僅 Android 平台
 ./gradlew testDebugUnitTest    # JVM 引擎測試（無模擬器）
 ```
 
-Gradle 8.13（wrapper）+ AGP 8.10 + Kotlin 2.1；compileSdk 36 / targetSdk 36 / minSdk 29。
+Gradle 8.13（wrapper）+ AGP 8.10 + Kotlin 2.1；compileSdk 36 / targetSdk 36 / minSdk 28（Android 9）。
 單一 module `app`。
 
 Google Play 上架（同 einkbro/calliplus 做法）：`playRelease` build type =
@@ -77,3 +77,8 @@ Application ID：`info.plateaukao.ohmybias`。
 - IME 對 EditText 的游標操作走 `InputConnection`：`commitText`／`deleteSurroundingTextInCodePoints`／
   `setSelection`（`engineDidCommitPair` 依此把游標放進成對標點中間）。
 - Android IME 無 iOS 鍵盤 extension 的 60MB 上限 — `MemoryBudget.canAfford` 恆真（保留 API 對齊上游）。
+- **minSdk 28（Android 9）**：主題不能用 `Theme.DeviceDefault.DayNight`（API 29）— 走
+  `values/`＋`values-night/` 的 `@style/AppTheme`。`android.icu.text.Transliterator` 公開
+  SDK 自 API 29 起（runtime 其實 API 24 就在、Android 9 @hide 可用，但不能假設 OEM ROM 放行）—
+  `ClipboardProcessor` 以 `SDK_INT >= 29` 守衛，28 退回 s2t/t2s.json 逐字對照。
+  驗證用不了 sim-use（其 device bridge APK 是 minSdk 30），改用 adb + uiautomator dump。
