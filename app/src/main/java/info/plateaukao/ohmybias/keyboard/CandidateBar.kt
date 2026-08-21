@@ -112,14 +112,8 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             leftMargin = dp(10f)
         })
 
-        scrollView.isHorizontalScrollBarEnabled = false
-        stack.orientation = LinearLayout.HORIZONTAL
-        stack.gravity = Gravity.CENTER_VERTICAL
-        scrollView.addView(stack, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT))
-        addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
-            leftMargin = dp(64f)
-        })
-
+        // 工具列先加、候選捲動區後加 —— FrameLayout 後加者疊在上層，也先收到觸控。
+        // 聯想列是「覆蓋」在工具列上而不是取代它，蓋不到的工具列鍵要照樣點得到。
         toolbarStack.orientation = LinearLayout.HORIZONTAL
         addView(toolbarStack, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
             leftMargin = dp(8f); rightMargin = dp(8f)
@@ -161,15 +155,59 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                 b.setOnLongClickListener { onToolbarKey?.invoke(KeyAction.ShowImePicker); true }
             }
         }
+        scrollView.isHorizontalScrollBarEnabled = false
+        // 覆蓋工具列時得遮住底下的圖示（否則字縫間會透出圖示）— 與整條列同色
+        scrollView.setBackgroundColor(KeyboardTheme.toolbarBackground)
+        stack.orientation = LinearLayout.HORIZONTAL
+        stack.gravity = Gravity.CENTER_VERTICAL
+        scrollView.addView(stack, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT))
+        addView(scrollView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
+            leftMargin = dp(64f)
+        })
+
         applyComposingMargin()
         updateToolbarVisibility()
     }
 
-    /// 空閒（無組字、無候選）才顯示工具列；候選捲動區與其互斥
+    /// 空閒（無組字、無候選）顯示工具列；**組字候選**整條佔滿，工具列讓位。
+    /// **聯想詞**則是覆蓋在工具列上：蓋不到的工具列鍵仍看得見、點得到（點下去會順手收掉
+    /// 聯想，由 service 處理），而且右側固定留一顆鍵的寬度 —— 聯想再長也吃不掉最後那顆，
+    /// 「收折鍵盤 ∨」這種隨時要點得到的鍵才不會被聯想列鎖住。
     private fun updateToolbarVisibility() {
         val idle = composingLabel.text.isNullOrEmpty() && activeStackViews == 0
-        toolbarStack.visibility = if (idle) View.VISIBLE else View.GONE
+        val overlay = !idle && lastSuggestions && activeStackViews > 0
+        toolbarStack.visibility = if (idle || overlay) View.VISIBLE else View.GONE
         scrollView.visibility = if (idle) View.GONE else View.VISIBLE
+        applyOverlayGeometry(overlay)
+    }
+
+    /// 覆蓋模式：捲動區寬度改 WRAP_CONTENT（右邊空出來的地方讓觸控落到工具列），
+    /// 並保留右側一顆鍵的寬度當上限
+    private fun applyOverlayGeometry(overlay: Boolean) {
+        val lp = scrollView.layoutParams as? LayoutParams ?: return
+        val w = if (overlay) LayoutParams.WRAP_CONTENT else LayoutParams.MATCH_PARENT
+        val right = if (overlay) toolbarSlotWidth() else 0
+        if (lp.width != w || lp.rightMargin != right) {
+            lp.width = w
+            lp.rightMargin = right
+            scrollView.layoutParams = lp
+        }
+    }
+
+    /// 一顆工具列鍵的寬度（等權重平分整條列）— 尚未 layout 時先用 48dp 近似，
+    /// onSizeChanged 拿到真實寬度後再修正
+    private fun toolbarSlotWidth(): Int {
+        val n = toolbarStack.childCount
+        if (n == 0) return 0
+        val usable = width - dp(8f) * 2
+        return if (usable > 0) usable / n else dp(48f)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (toolbarStack.visibility == View.VISIBLE && scrollView.visibility == View.VISIBLE) {
+            applyOverlayGeometry(overlay = true)
+        }
     }
 
     /// 對應 iOS 約束：候選捲動區起點 = composing 標籤右緣 + 8dp（標籤變長時跟著推移）

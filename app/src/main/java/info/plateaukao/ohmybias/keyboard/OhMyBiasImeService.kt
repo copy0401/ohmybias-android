@@ -200,7 +200,12 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             haptic()
             engine.commitComposingRaw()
         }
-        bar.onToolbarKey = { action -> handleKey(action) }
+        bar.onToolbarKey = { action ->
+            // 聯想列是覆蓋在工具列上的 —— 點得到的那幾顆鍵要先把聯想收掉再做事，
+            // 否則按完（例如收折鍵盤）下次開鍵盤還留著上一輪的過期聯想
+            if (showingSuggestions) clearSuggestions()
+            handleKey(action)
+        }
         bar.onDismissSuggestions = {
             haptic()
             clearSuggestions()
