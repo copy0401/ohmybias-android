@@ -84,6 +84,16 @@ android {
     }
 
     // phrases.bin 等以 assets 原樣打包（不壓縮與否皆可 — 啟動時複製到 filesDir 再 mmap）
+
+    packaging {
+        resources.excludes += setOf(
+            // kotlin-reflect 專用的 builtins 中繼資料（~11 KB 壓縮後）— 本專案無反射
+            "kotlin/**",
+            // AGP 塞進去的版本資訊檔，執行期無人讀
+            "META-INF/*.version",
+            "META-INF/version-control-info.textproto",
+        )
+    }
 }
 
 // Gradle Play Publisher（同 einkbro/calliplus）：`./gradlew publishPlayReleaseBundle`

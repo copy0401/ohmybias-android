@@ -1,6 +1,7 @@
 package info.plateaukao.ohmybias.android
 
 import android.app.Application
+import info.plateaukao.ohmybias.keyboard.CollectionData
 import info.plateaukao.ohmybias.shared.AppEnv
 import java.io.File
 
@@ -15,6 +16,7 @@ class OhMyBiasApp : Application() {
         copyAssetsIfNeeded()
         Prefs.install(this)
         ClipboardProcessor.install(this)
+        CollectionData.install(assets)   // 面板資料改讀 assets/collections.txt（省 ~90 KB dex）
     }
 
     /// assets → sharedDir（引擎層統一走檔案路徑）。
