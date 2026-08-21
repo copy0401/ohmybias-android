@@ -92,6 +92,12 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("hideGlobeKey", false)
         set(v) = sp.edit().putBoolean("hideGlobeKey", v).apply()
 
+    /// 組字候選時保留工具列：候選改為覆蓋在工具列上（同聯想列），右側留一顆鍵可點。
+    /// 預設關 — 候選整條佔滿
+    var keepToolbarWithCandidates: Boolean
+        get() = sp.getBoolean("keepToolbarWithCandidates", false)
+        set(v) = sp.edit().putBoolean("keepToolbarWithCandidates", v).apply()
+
     /// 鍵盤高度縮放（0.85–1.40；1.0 = 預設 224dp/180dp）— 大螢幕手機可調大
     var keyboardHeightScale: Float
         get() = sp.getFloat("keyboardHeightScale", 1.0f)

@@ -13,10 +13,12 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import info.plateaukao.ohmybias.R
+import info.plateaukao.ohmybias.android.Prefs
 import info.plateaukao.ohmybias.shared.SkinSettings
 
 /// 候選字列：左側 composing 碼、右側水平捲動候選字／聯想詞。
-/// 空閒時顯示目前輸入法模式＋sweetlime 工具列（組字/候選出現時自動隱藏）。
+/// 空閒時顯示目前輸入法模式＋sweetlime 工具列；聯想詞（與開了選項時的組字候選）
+/// 覆蓋在工具列上，右側留一顆鍵；否則組字候選整條佔滿、工具列讓位。
 @SuppressLint("ViewConstructor")
 class CandidateBar(context: Context) : FrameLayout(context) {
 
@@ -101,19 +103,9 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     init {
         setBackgroundColor(KeyboardTheme.toolbarBackground)
 
-        composingLabel.typeface = Typeface.MONOSPACE
-        composingLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f)
-        composingLabel.setTextColor(KeyboardTheme.textSub)
-        // 組字碼本身可點 — 有候選但要英文單字時，點了原樣上屏
-        composingLabel.isClickable = true
-        composingLabel.setOnClickListener { onCommitComposing?.invoke() }
-        addView(composingLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            leftMargin = dp(10f)
-        })
-
-        // 工具列先加、候選捲動區後加 —— FrameLayout 後加者疊在上層，也先收到觸控。
-        // 聯想列是「覆蓋」在工具列上而不是取代它，蓋不到的工具列鍵要照樣點得到。
+        // 工具列先加、組字標籤與候選捲動區後加 —— FrameLayout 後加者疊在上層，也先收到觸控。
+        // 聯想列（與開了選項時的組字候選）是「覆蓋」在工具列上而不是取代它，
+        // 蓋不到的工具列鍵要照樣點得到。
         toolbarStack.orientation = LinearLayout.HORIZONTAL
         addView(toolbarStack, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
             leftMargin = dp(8f); rightMargin = dp(8f)
@@ -155,6 +147,20 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                 b.setOnLongClickListener { onToolbarKey?.invoke(KeyAction.ShowImePicker); true }
             }
         }
+        composingLabel.typeface = Typeface.MONOSPACE
+        composingLabel.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f)
+        composingLabel.setTextColor(KeyboardTheme.textSub)
+        composingLabel.gravity = Gravity.CENTER_VERTICAL
+        // 覆蓋工具列時標籤正好壓在第一顆鍵（米/英）上 — 滿高、不透明，整顆遮掉
+        composingLabel.setBackgroundColor(KeyboardTheme.toolbarBackground)
+        // 組字碼本身可點 — 有候選但要英文單字時，點了原樣上屏
+        composingLabel.isClickable = true
+        composingLabel.setOnClickListener { onCommitComposing?.invoke() }
+        addView(composingLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+            gravity = Gravity.START
+            leftMargin = dp(10f)
+        })
+
         scrollView.isHorizontalScrollBarEnabled = false
         // 覆蓋工具列時得遮住底下的圖示（否則字縫間會透出圖示）— 與整條列同色
         scrollView.setBackgroundColor(KeyboardTheme.toolbarBackground)
@@ -165,25 +171,29 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             leftMargin = dp(64f)
         })
 
-        applyComposingMargin()
         updateToolbarVisibility()
     }
 
-    /// 空閒（無組字、無候選）顯示工具列；**組字候選**整條佔滿，工具列讓位。
+    /// 空閒（無組字、無候選）顯示工具列；**組字候選**預設整條佔滿，工具列讓位。
     /// **聯想詞**則是覆蓋在工具列上：蓋不到的工具列鍵仍看得見、點得到（點下去會順手收掉
     /// 聯想，由 service 處理），而且右側固定留一顆鍵的寬度 —— 聯想再長也吃不掉最後那顆，
     /// 「收折鍵盤 ∨」這種隨時要點得到的鍵才不會被聯想列鎖住。
+    /// 開了「組字候選時保留工具列」偏好，組字候選也走同一套覆蓋（組字標籤壓住第一顆鍵）。
     private fun updateToolbarVisibility() {
         val idle = composingLabel.text.isNullOrEmpty() && activeStackViews == 0
-        val overlay = !idle && lastSuggestions && activeStackViews > 0
+        val overlay = !idle && (Prefs.keepToolbarWithCandidates || (lastSuggestions && activeStackViews > 0))
         toolbarStack.visibility = if (idle || overlay) View.VISIBLE else View.GONE
         scrollView.visibility = if (idle) View.GONE else View.VISIBLE
         applyOverlayGeometry(overlay)
     }
 
     /// 覆蓋模式：捲動區寬度改 WRAP_CONTENT（右邊空出來的地方讓觸控落到工具列），
-    /// 並保留右側一顆鍵的寬度當上限
+    /// 並保留右側一顆鍵的寬度當上限；有組字碼時標籤撐到至少一顆鍵寬，把底下的米/英整顆遮住
+    /// （標籤左緣 10dp、工具列左緣 8dp，差 2dp）
     private fun applyOverlayGeometry(overlay: Boolean) {
+        val minW = if (overlay && !composingLabel.text.isNullOrEmpty()) (toolbarSlotWidth() - dp(2f)).coerceAtLeast(0) else 0
+        if (composingLabel.minWidth != minW) composingLabel.minWidth = minW
+        applyComposingMargin()
         val lp = scrollView.layoutParams as? LayoutParams ?: return
         val w = if (overlay) LayoutParams.WRAP_CONTENT else LayoutParams.MATCH_PARENT
         val right = if (overlay) toolbarSlotWidth() else 0
@@ -227,8 +237,7 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     fun setComposing(text: String) {
         if (composingLabel.text?.toString() == text) return  // 未變就不量測/不重排
         composingLabel.text = text
-        applyComposingMargin()
-        updateToolbarVisibility()
+        updateToolbarVisibility()  // 內含 applyComposingMargin
     }
 
     /// 從 stack 取第 index 個 TextView 重用，不夠才建（取代每鍵擊 removeAllViews + new）
