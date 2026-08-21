@@ -1,5 +1,5 @@
-0.3.4 — punctuation pairing
-• Half-width brackets now pair too: ( [ { produce () [] {} with the caret in the middle, and so does the double quote
-• The single quote is deliberately left out, so don't and Daniel's stay intact
-• Fixed symbol keys not pairing: a 【 typed by code paired, but the same character tapped on the symbol page, the symbol panel or a key swipe did not — both paths behave the same now
-• Turn it off with "auto-close paired punctuation" in settings
+0.3.5 — toolbar and key-face options
+• Suggestions now overlay the toolbar and leave the rightmost key free, so "hide keyboard" stays reachable
+• New option: keep the toolbar while composing — candidates overlay it instead of replacing it
+• New option: uppercase key labels in Boshiamy mode, like the radical chart and physical keycaps; codes sent are unchanged
+• Fixed a race between background warm-up and table reload that could show wrong code hints or crash
