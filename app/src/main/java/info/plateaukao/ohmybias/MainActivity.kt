@@ -127,6 +127,7 @@ class MainActivity : Activity() {
         root.addView(toggle("送字後顯示字根提示", Prefs.showCodeHint) { Prefs.showCodeHint = it })
         root.addView(toggle("成對標點自動補右半", Prefs.punctuationPairing) { Prefs.punctuationPairing = it })
         root.addView(toggle("按鍵觸覺回饋", Prefs.hapticFeedback) { Prefs.hapticFeedback = it })
+        root.addView(toggle("米模式字母鍵顯示大寫", Prefs.uppercaseLettersInChinese) { Prefs.uppercaseLettersInChinese = it })
         root.addView(toggle("隱藏 🌐 鍵（空白鍵加寬）", Prefs.hideGlobeKey) { Prefs.hideGlobeKey = it })
         root.addView(footnote("隱藏後長按工具列「米/英」可開輸入法選單"))
         root.addView(toggle("同音字含罕見讀音", Prefs.homophoneMultiReading) { Prefs.homophoneMultiReading = it })

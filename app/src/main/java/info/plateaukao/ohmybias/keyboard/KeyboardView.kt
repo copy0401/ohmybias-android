@@ -9,6 +9,7 @@ import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import info.plateaukao.ohmybias.android.Prefs
 import info.plateaukao.ohmybias.shared.MemoryBudget
 import info.plateaukao.ohmybias.shared.SkinSettings
 import info.plateaukao.ohmybias.shared.UserPhrases
@@ -53,6 +54,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     private var panelView: CollectionPanelView? = null
     /// 建鍵時的皮膚世代 — 皮膚重載後才需要重建 KeySpec（滑動開關/版面選項）
     private var builtSkinGeneration = -1
+    /// 建鍵時「中文模式大寫字母」偏好值 — 在設定頁改過後回鍵盤要重建鍵面
+    private var builtUppercaseLetters = false
 
     private val bgPaint = Paint()
 
@@ -95,6 +98,7 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     fun syncSessionState(needsSwitchKey: Boolean, newReturnLabel: String) {
         if (needsInputModeSwitchKey == needsSwitchKey && returnKeyLabel == newReturnLabel &&
             builtSkinGeneration == SkinSettings.shared.generation &&
+            builtUppercaseLetters == Prefs.uppercaseLettersInChinese &&
             currentPage != PageKind.PHRASES  // 常用語可能在設定頁被改過 — 回鍵盤時重讀
         ) return
         needsInputModeSwitchKey = needsSwitchKey
@@ -104,6 +108,7 @@ class KeyboardView(context: Context) : ViewGroup(context) {
 
     fun reloadKeys() {
         builtSkinGeneration = SkinSettings.shared.generation
+        builtUppercaseLetters = Prefs.uppercaseLettersInChinese
         removeAllViews()
         keyButtons.clear()
         rowsOfButtons.clear()
@@ -366,8 +371,10 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         val r1 = "qwertyuiop".map { it.toString() }
         val r2 = "asdfghjkl".map { it.toString() }
         val r3 = "zxcvbnm".map { it.toString() }
+        // 鍵面大寫：英文模式看 shift；中文模式看偏好（字根表慣用大寫）。action 一律小寫碼
+        val uppercase = if (isEnglishMode) isShifted else Prefs.uppercaseLettersInChinese
         fun key(s: String): KeySpec = KeySpec(
-            label = if (isEnglishMode && isShifted) s.uppercase() else s,
+            label = if (uppercase) s.uppercase() else s,
             action = KeyAction.Letter(s),
             swipeUp = swipeEntry(SwipeData.up[s], up = true),
             swipeDown = swipeEntry(SwipeData.down[s], up = false),
