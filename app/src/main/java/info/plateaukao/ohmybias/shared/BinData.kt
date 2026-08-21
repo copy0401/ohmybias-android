@@ -59,4 +59,29 @@ class BinData private constructor(private val buf: ByteBuffer) {
 
     fun asciiString(start: Int, len: Int): String = String(bytes(start, len), Charsets.US_ASCII)
     fun utf8String(start: Int, len: Int): String = String(bytes(start, len), Charsets.UTF_8)
+
+    /// 自 start 讀 unitCount 個 UTF-16LE code unit 成字串（越界回空）
+    fun utf16String(start: Int, unitCount: Int): String {
+        if (start < 0 || unitCount < 0 || start + 2 * unitCount > count) return ""
+        val chars = CharArray(unitCount) { buf.getChar(start + 2 * it) }
+        return String(chars)
+    }
+
+    /// 自 start 讀 unitCount 個 UTF-16LE code unit，依 code point 切成一字一字串
+    /// （surrogate pair 合成一字；越界或落單的 surrogate 略過）
+    fun utf16Chars(start: Int, unitCount: Int): List<String> {
+        if (start < 0 || unitCount < 0 || start + 2 * unitCount > count) return emptyList()
+        val r = ArrayList<String>(unitCount)
+        var i = 0
+        while (i < unitCount) {
+            val hi = buf.getChar(start + 2 * i)
+            if (Character.isHighSurrogate(hi) && i + 1 < unitCount) {
+                val lo = buf.getChar(start + 2 * (i + 1))
+                if (Character.isLowSurrogate(lo)) { r.add(String(charArrayOf(hi, lo))); i += 2; continue }
+            }
+            if (!Character.isSurrogate(hi)) r.add(hi.toString())
+            i++
+        }
+        return r
+    }
 }

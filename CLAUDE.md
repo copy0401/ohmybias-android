@@ -47,7 +47,7 @@ adb shell ime set info.plateaukao.ohmybias/.keyboard.OhMyBiasImeService  # force
 - `shared/`（`app/src/main/java/.../shared/`）：**禁止 import Android API**（org.json 除外 — Android
   runtime 內建、JVM 測試由 test 依賴補齊）。與 iOS `Shared/` 一對一：`InputEngine`（核心狀態機）、
   `CINTable`/`CINCompiler`（CINM 二進位，格式與 iOS 完全相同可跨平台共用）、`CandidateRanker`、
-  `SuggestionEngine`、`WikiCorpus`（PHMM phrases.bin）、`ZhuyinLookup`（zhuyin/pinyin/char_freq mmap 二進位，`tools/gen_data_bins.py` 自 iOS 版 JSON 轉製；格式見該腳本）、`BigramSuggest`、`UserPhrases`、
+  `SuggestionEngine`、`WikiCorpus`（PHM2 phrases.bin，與 iOS 共用同一份；`tools/convert_phrases_v2.py` 自舊 PHMM 轉製）、`ZhuyinLookup`（zhuyin/pinyin/char_freq mmap 二進位 ZYM2/PYM2/CFM2，`tools/gen_data_bins.py` 自 iOS 版 JSON 轉製；格式見該腳本，讀取端 `DataMaps.kt`）、`BigramSuggest`、`UserPhrases`、
   `SkinSettings`。平台抽象：`AppEnv`（sharedDir 路徑）、`BinData`（mmap LE 讀取）、
   `FreqTracker` interface（排序邏輯在 default method）、`ClipboardBridge`、`DefaultPreferences.backing`。
 - `android/`：`OhMyBiasApp`（Application — 建目錄、assets→filesDir/shared 複製、掛橋接）、

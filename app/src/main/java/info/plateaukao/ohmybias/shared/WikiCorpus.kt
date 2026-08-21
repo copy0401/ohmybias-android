@@ -2,7 +2,7 @@ package info.plateaukao.ohmybias.shared
 
 import java.io.File
 
-/// 極簡語料層：只保留萌典詞組（phrases.bin，PHMM 格式，CC0）。
+/// 極簡語料層：只保留萌典詞組（phrases.bin，PHM2 格式，CC0）。
 /// 其餘語料（詞級 n-gram、新聞語料、成語、專業詞典、NER、emoji、地區用詞）不隨附，
 /// API 介面與上游 Yabomish 相同（回傳空結果），讓 SuggestionEngine / CandidateRanker 原始碼不需修改。
 class WikiCorpus {
@@ -14,7 +14,8 @@ class WikiCorpus {
         )
     }
 
-    // 萌典詞組（PHMM: header + sorted UTF-32LE 首字 keys + offsets + counts + phrase blob）
+    // 萌典詞組（PHM2: header + sorted u32 首字 keys + u32 offsets + u8 counts + phrase blob；
+    // 詞只存去掉首字的餘字，UTF-16 code unit — 格式見 tools/convert_phrases_v2.py）
     private var phData: BinData? = null
     private var phKeyCount = 0
     private var phKeysOff = 0
@@ -34,12 +35,12 @@ class WikiCorpus {
         val d = BinData.mapped(p.path) ?: run {
             return
         }
-        if (d.count < 12 || d.u8(0) != 0x50 || d.u8(1) != 0x48 || d.u8(2) != 0x4D || d.u8(3) != 0x4D) return
+        if (d.count < 12 || d.u8(0) != 'P'.code || d.u8(1) != 'H'.code || d.u8(2) != 'M'.code || d.u8(3) != '2'.code) return
         phKeyCount = d.u32(4).toInt()
         phKeysOff = 8
         phOffsetsOff = phKeysOff + phKeyCount * 4
         phCountsOff = phOffsetsOff + phKeyCount * 4
-        phPhrasesOff = phCountsOff + phKeyCount * 2
+        phPhrasesOff = phCountsOff + phKeyCount
         if (phPhrasesOff > d.count) return
         phData = d
     }
@@ -88,19 +89,15 @@ class WikiCorpus {
 
     private fun readPhrases(d: BinData, idx: Int, limit: Int): List<String> {
         var pos = phPhrasesOff + d.u32(phOffsetsOff + idx * 4).toInt()
-        val count = minOf(d.u16(phCountsOff + idx * 2), limit)
+        val count = minOf(d.u8(phCountsOff + idx), limit)
+        val first = String(Character.toChars(d.u32(phKeysOff + idx * 4).toInt()))
         val r = ArrayList<String>(count)
         for (i in 0 until count) {
             if (pos < 0 || pos >= d.count) break
-            val len = d.u8(pos); pos += 1
-            if (pos + len * 4 > d.count) break
-            val sb = StringBuilder()
-            for (j in 0 until len) {
-                val cp = d.u32(pos).toInt()
-                if (Character.isValidCodePoint(cp)) sb.appendCodePoint(cp)
-                pos += 4
-            }
-            r.add(sb.toString())
+            val units = d.u8(pos); pos += 1
+            if (pos + units * 2 > d.count) break
+            r.add(first + d.utf16String(pos, units))
+            pos += units * 2
         }
         return r
     }

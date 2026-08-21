@@ -4,8 +4,8 @@ import org.json.JSONObject
 import java.io.File
 
 /// 同音字查詢：字 → 注音 → 同音字（按字頻排序）。
-/// 資料優先走 mmap 二進位（zhuyin_data.bin/pinyin_data.bin/char_freq.bin，零 heap、零解析），
-/// 找不到 .bin 時回退舊版 JSON（升級相容）。
+/// 資料優先走 mmap 二進位（zhuyin_data.bin/pinyin_data.bin/char_freq.bin — v2 格式 ZYM2/PYM2/CFM2，
+/// 零 heap、零解析；格式見 tools/gen_data_bins.py），找不到 .bin 時回退舊版 JSON（升級相容）。
 class ZhuyinLookup {
     companion object {
         val shared: ZhuyinLookup by lazy { ZhuyinLookup() }
@@ -14,9 +14,8 @@ class ZhuyinLookup {
     data class Reading(val zhuyin: String, val chars: List<String>)
 
     // mmap 二進位
-    private var z2cBin: StringListMap? = null
-    private var c2zBin: StringListMap? = null
-    private var pinyinBin: StringListMap? = null
+    private var zhuyinBin: ZhuyinTable? = null
+    private var pinyinBin: PinyinTable? = null
     private var freqBin: CharFreqMap? = null
 
     // JSON fallback
@@ -42,16 +41,14 @@ class ZhuyinLookup {
         loadJsonFallback()
     }
 
-    /// zhuyin_data.bin = ZYMM 容器（兩個 SSMM）；pinyin/char_freq 各自獨立檔
+    /// zhuyin_data.bin（ZYM2）為主；pinyin_data.bin（PYM2，別名指向 ZYM2 音節）與 char_freq.bin（CFM2）各自獨立檔
     private fun loadBins(): Boolean {
         val zf = dataFile("zhuyin_data.bin") ?: return false
         val d = BinData.mapped(zf.path) ?: return false
-        if (d.u8(0) != 'Z'.code || d.u8(1) != 'Y'.code || d.u8(2) != 'M'.code || d.u8(3) != 'M'.code) return false
-        val z2c = StringListMap.at(d, d.u32(4).toInt()) ?: return false
-        val c2z = StringListMap.at(d, d.u32(8).toInt()) ?: return false
-        z2cBin = z2c; c2zBin = c2z
+        val zt = ZhuyinTable.of(d) ?: return false
+        zhuyinBin = zt
         dataFile("pinyin_data.bin")?.let { pf ->
-            BinData.mapped(pf.path)?.let { pd -> pinyinBin = StringListMap.at(pd, 0) }
+            BinData.mapped(pf.path)?.let { pd -> pinyinBin = PinyinTable.of(pd, zt) }
         }
         dataFile("char_freq.bin")?.let { ff ->
             BinData.mapped(ff.path)?.let { fd -> freqBin = CharFreqMap.of(fd) }
@@ -104,7 +101,7 @@ class ZhuyinLookup {
         freqBin?.get(char) ?: (charFreq[char] ?: 0)
 
     private fun zhuyinsOf(char: String): List<String> =
-        c2zBin?.get(char) ?: (charToZhuyins[char] ?: emptyList())
+        zhuyinBin?.zhuyinsOf(char) ?: (charToZhuyins[char] ?: emptyList())
 
     // MARK: - 排序
 
@@ -136,7 +133,7 @@ class ZhuyinLookup {
 
     fun charsForZhuyin(zhuyin: String): List<String> {
         ensureLoaded()
-        return z2cBin?.get(zhuyin) ?: (zhuyinToChars[zhuyin] ?: emptyList())
+        return zhuyinBin?.charsForZhuyin(zhuyin) ?: (zhuyinToChars[zhuyin] ?: emptyList())
     }
 
     fun charsForPinyin(pinyin: String): List<String> {
