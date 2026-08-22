@@ -182,8 +182,30 @@ class MainActivity : Activity() {
         testInput.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18f)
         root.addView(testInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        // ── 指令速查 ──
+        // ── 使用說明 ──（原本鍵盤內 ,,H 的完整說明搬來這裡，指令不再佔一個命令碼）
+        root.addView(sectionTitle("使用說明"))
+        root.addView(footnote(
+            """
+            ▎基本輸入
+            輸入字根碼後按空白鍵送出；V/R/S/F 快速選第 2/3/4/5 個候選字；
+            多候選時數字鍵 1–9 選字。
+
+            ▎空白鍵手勢
+            左右滑：循環切換 米→英文→數字→符號
+            上滑：中↔英快速切換
+            右上滑：注音查碼　左上滑：同音字查詢
+
+            ▎鍵盤切換
+            [123] 切到數字符號頁；[符] 切到數字頁（嘸蝦米第三行）；
+            [米/英] 從數字符號頁回字母頁。
+
+            ▎尺寸調整
+            上方滑桿可調鍵盤高度（85–140%）與按鍵間距（0–150%），拖曳即時生效。
+            """.trimIndent()
+        ))
+
         root.addView(sectionTitle("指令速查"))
+        root.addView(footnote("在輸入框打 ,, 開頭的指令（不必送出）"))
         val cheat = footnote(
             """
             ,,T 繁體  ,,S 簡體  ,,J 日文
@@ -195,7 +217,6 @@ class MainActivity : Activity() {
             ,,PIN 固定排序  ,,UNPINx 解除
             ,,RS 重置字頻  ,,RL 重載字表
             ,,V 貼上純文字  ,,VT 簡→繁  ,,VS 繁→簡
-            ,,H 完整說明
             """.trimIndent()
         )
         cheat.typeface = Typeface.MONOSPACE

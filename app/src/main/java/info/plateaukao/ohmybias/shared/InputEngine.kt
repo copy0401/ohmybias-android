@@ -648,51 +648,6 @@ class InputEngine(
             if (!_isZhuyinMode) { clearZhuyinSlots(); _currentCandidates = emptyList(); notifyCandidates() }
             return
         }
-        if (cmd == "h") {
-            val sgxHelp = "• ,,SG 聯想開關\n"
-            val help = """
-            【OhMyBias 輸入法 使用指南】
-
-            ▎基本輸入
-            • 輸入字根碼後按空白鍵送出
-            • V/R/S/F 快速選第 2/3/4/5 個候選字
-            • 數字鍵 1-9 選字（多候選時）
-
-            ▎空白鍵手勢
-            • 左右滑：循環切換 OhMyBias→英文→數字→符號
-            • 上滑：中↔英快速切換
-            • 右上滑：注音查碼
-            • 左上滑：同音字查詢
-
-            ▎鍵盤切換
-            • [123]：切到數字符號頁
-            • [符]：切到數字頁（無蝦米第三行）
-            • [嘸/英]：從數字符號頁回到字母頁
-
-            ▎特殊指令（輸入 ,, 開頭）
-            • ,,T 繁體  ,,S 簡體  ,,J 日文
-            • ,,SP 速成  ,,SL 慢打
-            • ,,TS 繁→簡  ,,ST 簡→繁
-            • ,,ZH 注音查碼  ,,TO 同音字
-            • ,,PYS 拼音(簡)  ,,PYT 拼音(繁)
-            • ,,RS 重置字頻  ,,RL 重載字表
-            • ,,PIN 固定同碼字排序  ,,UNPINx 解除
-            $sgxHelp• ,,C 顯示目前模式
-            • ,,H 顯示本說明
-
-            ▎剪貼簿處理
-            • ,,V 貼上純文字（去格式）
-            • ,,VT 貼上簡→繁  ,,VS 貼上繁→簡
-
-            ▎候選字區
-            • 空閒時顯示目前輸入法模式與工具列
-
-            ▎高度調整
-            • 設定頁可用滑桿調整鍵盤高度（85–140%）
-            """.trimIndent()
-            delegate?.engineDidCommit(help)
-            return
-        }
         if (cmd == "pys" || cmd == "pyt") {
             val entering = !_isPinyinMode || (cmd == "pys") != _pinyinSimplified
             if (entering) {
@@ -726,7 +681,7 @@ class InputEngine(
             return
         }
         val mode = modeMap[cmd] ?: run {
-            delegate?.engineDidShowToast("未知命令 ,,${cmd.uppercase()}\n輸入 ,,H 查看說明"); return
+            delegate?.engineDidShowToast("未知命令 ,,${cmd.uppercase()}\n完整說明見設定頁"); return
         }
         // 清除所有查詢模式旗標
         _isZhuyinMode = false; clearZhuyinSlots()
