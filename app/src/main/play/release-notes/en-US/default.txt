@@ -1,3 +1,4 @@
-0.3.8 — larger toolbar icons
-• Toolbar icons were being squeezed a size down by the slot width and no longer matched the text buttons beside them; they now line up, and stop shrinking when there are many buttons or the screen is narrow
-• From 0.3.7: minimum requirement lowered to Android 9, 30% smaller install
+0.4.0 — keyboard sizing you can actually adjust
+• New "key spacing" slider (0-150%): shrink the gaps between keys and the reclaimed space goes into the key faces. Total height stays the same, so narrow screens get bigger targets
+• Height and key spacing now apply live — drag the slider and the keyboard reshapes right there, no closing and reopening
+• Removed the ,,H command, which dumped the whole guide into your text field. The full guide now lives in Settings
