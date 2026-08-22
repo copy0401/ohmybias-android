@@ -122,10 +122,15 @@ class CandidateBar(context: Context) : FrameLayout(context) {
                 iv.setImageResource(item.iconRes)
                 iv.imageTintList = android.content.res.ColorStateList.valueOf(KeyboardTheme.toolbarColor)
                 iv.scaleType = ImageView.ScaleType.FIT_CENTER
-                // 11dp 內縮 → 圖示畫 24dp（46dp 列高 - 兩側 11dp）；Material Symbols
-                // 24dp 框內建 2-3dp 留白，光學高度 ~19dp，與旁邊 19sp 文字鍵同一級
-                val ip = dp(11f)
-                iv.setPadding(ip, ip, ip, ip)
+                // 只內縮上下 12dp → 圖示畫 22dp 框（46dp 列高 - 上下各 12dp）。Material
+                // Symbols 24dp 框內建 2-3dp 留白，22dp 框的光學高度約 18dp，與旁邊 19dp
+                // 文字鍵的字面高度（米 ≈ 17.5dp）齊平。
+                // 水平不可內縮 — FIT_CENTER 取寬高較小者，而格寬是「螢幕寬 ÷ 按鍵數」：
+                // 411dp 螢幕配 10 顆鍵只有 41dp，再各縮 11dp 就剩 19dp 框（光學 15dp），
+                // 圖示會比文字鍵小一號；360dp 的窄螢幕更只剩 14dp。水平留 0 讓高度成為
+                // 唯一限制，圖示自己置中，觸控範圍仍是整格。
+                val ip = dp(12f)
+                iv.setPadding(0, ip, 0, ip)
                 iv.contentDescription = item.label
                 iv.isClickable = true
                 iv.setOnClickListener { onToolbarKey?.invoke(item.action) }
