@@ -543,7 +543,9 @@ class KeyButton(
 
     override fun onDraw(canvas: Canvas) {
         val r = KeyboardTheme.cornerRadius * density
-        val bw = KeyboardTheme.borderWidth * density
+        // 邊框寬/色都分平時與按下兩套（皮膚未定義按下值時鏈回平時值 → 外觀不變）
+        val bw = (if (isPressedState) KeyboardTheme.borderWidthHighlight
+                  else KeyboardTheme.borderWidth) * density
         val half = bw / 2
         // 底色
         paint.style = Paint.Style.FILL
@@ -556,7 +558,11 @@ class KeyButton(
         // 邊框
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = bw
-        paint.color = if (spec.isSpecial) KeyboardTheme.systemBorder else KeyboardTheme.border
+        paint.color = if (spec.isSpecial) {
+            if (isPressedState) KeyboardTheme.systemBorderHighlight else KeyboardTheme.systemBorder
+        } else {
+            if (isPressedState) KeyboardTheme.borderHighlight else KeyboardTheme.border
+        }
         canvas.drawRoundRect(half, half, width - half, height - half, r, r, paint)
         // 主標籤
         if (spec.label.isNotEmpty()) {

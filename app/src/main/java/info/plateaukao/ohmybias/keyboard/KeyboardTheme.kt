@@ -68,7 +68,14 @@ object KeyboardTheme {
         val textSystem = pal(arrayOf("textSystem", "textMain"), "#000000", "#1A1A1A")
         val border = pal("border", "#000000", "#BBBBBB")
         val systemBorder = pal(arrayOf("systemBorder", "border"), "#000000", "#333333")
+        val borderHighlight = pal(arrayOf("borderHighlight", "border"), "#000000", "#BBBBBB")
+        val systemBorderHighlight =
+            pal(arrayOf("systemBorderHighlight", "systemBorder", "border"), "#000000", "#333333")
         val borderWidth = (SkinSettings.shared.paletteNumber("borderSize", isDark) ?: 1.0).toFloat()
+        /// 按下時的邊框寬 — 皮膚未定義時同一般邊框寬（維持原本外觀）
+        val borderWidthHighlight =
+            (SkinSettings.shared.paletteNumber("borderSizeHighlight", isDark)
+                ?: SkinSettings.shared.paletteNumber("borderSize", isDark) ?: 1.0).toFloat()
         val toolbarColor = pal("toolbarColor", "#000000", "#CCCCCC")
         val toolbarBackground = pal(arrayOf("toolbarBg", "bg"), "#F0F0F0", "#000000")
         val candidateText = pal("candidateUnselectedText", "#000000", "#CCCCCC")
@@ -142,7 +149,14 @@ object KeyboardTheme {
     /// 功能鍵邊框（未定義時鏈回皮膚的一般邊框）
     val systemBorder: Int get() = res.systemBorder
 
+    /// 按下時的邊框色（未定義時鏈回該鍵平時的邊框色 → 外觀與舊皮膚一致）
+    val borderHighlight: Int get() = res.borderHighlight
+    val systemBorderHighlight: Int get() = res.systemBorderHighlight
+
     val borderWidth: Float get() = res.borderWidth
+
+    /// 按下時的邊框寬（未定義時同 borderWidth）
+    val borderWidthHighlight: Float get() = res.borderWidthHighlight
 
     const val cornerRadius = 8f
 

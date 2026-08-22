@@ -14,11 +14,13 @@
       "keyNormal": "#FFFFFF",
       "keyNormalHighlight": "#EBEBEB",
       "border": "#000000",
+      "borderHighlight": "#000000",
       "textMain": "#000000",
       "textSub": "#222222",
       "keySystem": "#D6D6D6C2",
       "keySystemHighlight": "#C7C7C7",
       "systemBorder": "#000000",
+      "systemBorderHighlight": "#000000",
       "textSystem": "#000000",
       "toolbarBg": "#F0F0F0",
       "toolbarColor": "#000000",
@@ -34,18 +36,21 @@
       "bubbleSelectedBg": "#000000",
       "bubbleTextSelected": "#FFFFFF",
       "bubbleTextUnselected": "#000000",
-      "borderSize": 1
+      "borderSize": 1,
+      "borderSizeHighlight": 1
     },
     "dark": {
       "bg": "#000000",
       "keyNormal": "#000000",
       "keyNormalHighlight": "#1A1A1A",
       "border": "#BBBBBB",
+      "borderHighlight": "#BBBBBB",
       "textMain": "#BBBBBB",
       "textSub": "#999999",
       "keySystem": "#CCCCCC",
       "keySystemHighlight": "#BBBBBB",
       "systemBorder": "#333333",
+      "systemBorderHighlight": "#333333",
       "textSystem": "#1A1A1A",
       "toolbarBg": "#000000",
       "toolbarColor": "#CCCCCC",
@@ -61,7 +66,8 @@
       "bubbleSelectedBg": "#1A1A1A",
       "bubbleTextSelected": "#FFFFFF",
       "bubbleTextUnselected": "#1A1A1A",
-      "borderSize": 1
+      "borderSize": 1,
+      "borderSizeHighlight": 1
     }
   },
   "groups": {
