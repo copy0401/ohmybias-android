@@ -176,6 +176,11 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             leftMargin = dp(64f)
         })
 
+        // 預建候選格：聯想列最多 ✕ + 10 個詞 = 11 格。第一次送字時才建 11 個 TextView
+        // 實測（HNR320T）要 6.6ms，整個送字路徑 12ms；之後重用只要 0.5ms。
+        // 移到建構時做，電子紙上第一次出聯想才不會多一次明顯的停頓。
+        repeat(11) { obtainStackView(it).visibility = View.GONE }
+
         updateToolbarVisibility()
     }
 

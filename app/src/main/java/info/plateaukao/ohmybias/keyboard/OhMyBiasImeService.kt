@@ -664,10 +664,18 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun engineDidCommitPair(left: String, right: String) = commitPair(left, right)
 
+    /// 成對標點：游標要停在兩半中間。右半用 commitText(newCursorPosition = 0) 送 ——
+    /// 0 = 游標放在插入文字的起點，正好是左右之間，全程單向 binder、零往返。
+    /// 舊版是 commitText(left+right) 再 moveCursor(-1)，而 moveCursor 走
+    /// getExtractedText：**同步**跨 process 呼叫，拉回整份文件、等對方 UI 執行緒
+    /// 回應（實測閒置 10 字欄位 2–3ms，長文件／忙碌的 app 會到數十 ms 以上），
+    /// 卡在 IME 主執行緒上正好是按鍵後那一幀。
     private fun commitPair(left: String, right: String) {
-        commitToEditor(left + right)
-        // moveCursor 以 code point 為單位 — 游標要停在成對標點中間
-        moveCursor(-right.codePointCount(0, right.length))
+        val ic = currentInputConnection ?: return
+        ic.beginBatchEdit()
+        ic.commitText(left, 1)
+        ic.commitText(right, 0)
+        ic.endBatchEdit()
     }
 
     override fun engineDidClearComposing() {
