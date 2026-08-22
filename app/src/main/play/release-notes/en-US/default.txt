@@ -1,4 +1,3 @@
-0.3.7 — Android 9 support, smaller again
-• Minimum requirement lowered from Android 10 to Android 9
-• 30% smaller install (767→534 KB): the phrase, bopomofo, pinyin and character-frequency data files use a new binary format — same data, same behaviour
-• From 0.3.6: panel data ships as a bundled data file, legacy launcher icons removed
+0.3.8 — larger toolbar icons
+• Toolbar icons were being squeezed a size down by the slot width and no longer matched the text buttons beside them; they now line up, and stop shrinking when there are many buttons or the screen is narrow
+• From 0.3.7: minimum requirement lowered to Android 9, 30% smaller install
