@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" alt="OhMyBias 米">
+  <img src="app/src/main/play/listings/zh-TW/graphics/icon/1.png" width="128" alt="OhMyBias 米">
 </p>
 
 # OhMyBias 米 Android
