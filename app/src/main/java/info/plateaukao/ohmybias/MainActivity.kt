@@ -134,10 +134,10 @@ class MainActivity : Activity() {
         root.addView(footnote("候選列覆蓋在工具列上（同聯想列），右側固定留一顆鍵可點"))
         root.addView(toggle("同音字含罕見讀音", Prefs.homophoneMultiReading) { Prefs.homophoneMultiReading = it })
 
-        // 鍵盤高度滑桿（大螢幕手機可調大；重開鍵盤生效 — 下方測試輸入框可即時預覽）
+        // 鍵盤高度滑桿（大螢幕手機可調大；拖曳時下方測試輸入框的鍵盤即時跟著變）
         val heightLabel = footnote("")
         fun heightPct() = (Prefs.keyboardHeightScale * 100).toInt()
-        fun updateHeightLabel() { heightLabel.text = "鍵盤高度：${heightPct()}%（85–140，重開鍵盤生效）" }
+        fun updateHeightLabel() { heightLabel.text = "鍵盤高度：${heightPct()}%（85–140，即時生效）" }
         updateHeightLabel()
         heightLabel.setPadding(0, dp(10f), 0, dp(2f))
         root.addView(heightLabel)
@@ -153,6 +153,27 @@ class MainActivity : Activity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
         root.addView(heightSeek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        // 按鍵間距滑桿（調小 = 鍵面更大更緊湊；0% 鍵與鍵完全貼合）
+        val gapLabel = footnote("")
+        fun gapPct() = (Prefs.keySpacingScale * 100).toInt()
+        fun updateGapLabel() { gapLabel.text = "按鍵間距：${gapPct()}%（0–150，100 = 預設，即時生效）" }
+        updateGapLabel()
+        gapLabel.setPadding(0, dp(10f), 0, dp(2f))
+        root.addView(gapLabel)
+        val gapSeek = SeekBar(this)
+        gapSeek.max = 150
+        gapSeek.progress = gapPct().coerceIn(0, 150)
+        gapSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                Prefs.keySpacingScale = progress / 100f
+                updateGapLabel()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        root.addView(gapSeek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(footnote("鍵盤上下留白、排距與鍵距一起縮放；調小則鍵面變大更好按"))
 
         // ── 測試輸入 ──
         root.addView(sectionTitle("測試輸入"))

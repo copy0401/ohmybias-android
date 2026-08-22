@@ -15,6 +15,14 @@ object Prefs : IMEPreferences {
         DefaultPreferences.setSuggestEnabled = { suggestEnabled = it }
     }
 
+    /// 監看偏好變更 — IME 與設定頁同 process，設定頁一改鍵盤就能即時反應
+    /// （SharedPreferences 只保 weak reference，呼叫端須自行持有 listener）
+    fun addListener(l: SharedPreferences.OnSharedPreferenceChangeListener) =
+        sp.registerOnSharedPreferenceChangeListener(l)
+
+    fun removeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) =
+        sp.unregisterOnSharedPreferenceChangeListener(l)
+
     /// 唯一候選且無法再延伸時自動送出
     override var autoCommit: Boolean
         get() = sp.getBoolean("autoCommit", false)
@@ -102,6 +110,12 @@ object Prefs : IMEPreferences {
     var keyboardHeightScale: Float
         get() = sp.getFloat("keyboardHeightScale", 1.0f)
         set(v) = sp.edit().putFloat("keyboardHeightScale", v.coerceIn(0.85f, 1.4f)).apply()
+
+    /// 按鍵間距縮放（0.0–1.5；1.0 = 預設 上下 6dp／左右 3dp／排距 8dp／鍵距 5dp）—
+    /// 調小讓鍵面更大更好按，0 = 鍵與鍵完全貼合
+    var keySpacingScale: Float
+        get() = sp.getFloat("keySpacingScale", 1.0f)
+        set(v) = sp.edit().putFloat("keySpacingScale", v.coerceIn(0f, 1.5f)).apply()
 
     /// 詞庫開關 — 極簡版僅萌典詞組，預設開啟
     override fun domainEnabled(key: String): Boolean =

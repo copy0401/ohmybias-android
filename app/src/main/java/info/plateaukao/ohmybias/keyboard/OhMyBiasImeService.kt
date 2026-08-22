@@ -52,6 +52,15 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     private var builtForDark = false
     private var builtBodyHeight = 0
+    /// 尺寸類偏好即時生效 — 設定頁拖滑桿時鍵盤就跟著變（同 process；
+    /// SharedPreferences 只保 weak reference，必須自己持有這個欄位）
+    private val prefsListener = android.content.SharedPreferences
+        .OnSharedPreferenceChangeListener { _, key ->
+            when (key) {
+                "keyboardHeightScale" -> handler.post { rebuildForHeightChange() }
+                "keySpacingScale" -> handler.post { keyboardView?.requestLayout() }
+            }
+        }
     /// 建這組 view 時的皮膚世代 —— 設定頁匯入 .cskin 後（同 process）整個 view 要重建，
     /// 否則候選列工具列與鍵面會用不同皮膚（工具列按鈕只在 CandidateBar 建構時讀一次）
     private var builtSkinGeneration = -1
@@ -73,6 +82,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         // 還原上次使用的語言模式（EN/中文）
         engine.setEnglishMode(Prefs.lastEnglishMode)
         warmUpReverseCache()
+        Prefs.addListener(prefsListener)
     }
 
     /// 反查表（查碼提示/注音同音字）整表建立成本高 — 背景預熱，
@@ -101,8 +111,23 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     }
 
     override fun onDestroy() {
+        Prefs.removeListener(prefsListener)
         engine.freqTracker.flushAll()
         super.onDestroy()
+    }
+
+    /// 高度改變 — 只改 layoutParams IME 視窗不會可靠重量測，整組視圖重建
+    /// （鍵面尺寸/字級都在建構時算好）；組字狀態留在 engine，重建後補回候選列與頁面
+    private fun rebuildForHeightChange() {
+        if (rootView == null) return
+        setInputView(onCreateInputView())
+        // 新建的 KeyboardView 用預設 Enter 標籤／🌐 鍵狀態 — 補回目前欄位的值
+        keyboardView?.syncSessionState(
+            shouldOfferSwitching() && !Prefs.hideGlobeKey,
+            returnLabel(currentInputEditorInfo),
+        )
+        refreshIdleBar()
+        syncPageWithEngine()
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
@@ -248,6 +273,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             setInputView(onCreateInputView())
         }
         keyboardView?.syncSessionState(shouldOfferSwitching() && !Prefs.hideGlobeKey, returnLabel(info))
+        keyboardView?.syncSpacingIfNeeded()
         refreshIdleBar()
         syncPageWithEngine()
     }

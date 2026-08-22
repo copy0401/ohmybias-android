@@ -56,6 +56,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     private var builtSkinGeneration = -1
     /// 建鍵時「中文模式大寫字母」偏好值 — 在設定頁改過後回鍵盤要重建鍵面
     private var builtUppercaseLetters = false
+    /// 上次排版採用的按鍵間距縮放 — 設定頁改過後回鍵盤要重排（鍵面尺寸會變）
+    private var laidOutSpacingScale = -1f
 
     private val bgPaint = Paint()
 
@@ -104,6 +106,11 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         needsInputModeSwitchKey = needsSwitchKey
         returnKeyLabel = newReturnLabel
         reloadKeys()
+    }
+
+    /// 按鍵間距偏好改過就重排（不必重建鍵面 — 只有版面尺寸變）
+    fun syncSpacingIfNeeded() {
+        if (laidOutSpacingScale != Prefs.keySpacingScale) requestLayout()
     }
 
     fun reloadKeys() {
@@ -201,8 +208,11 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         panelView?.layout(0, 0, w.toInt(), h.toInt())
         if (rowsOfButtons.isEmpty()) { layoutPopupIfNeeded(); return }
 
-        val padTop = dp(6f); val padBottom = dp(6f); val padSide = dp(3f)
-        val rowSpacing = dp(8f); val keySpacing = dp(5f)
+        // 間距縮放（設定頁「按鍵間距」）— 調小則鍵面變大、鍵與鍵更緊
+        val gap = Prefs.keySpacingScale
+        laidOutSpacingScale = gap
+        val padTop = dp(6f * gap); val padBottom = dp(6f * gap); val padSide = dp(3f * gap)
+        val rowSpacing = dp(8f * gap); val keySpacing = dp(5f * gap)
         val rowCount = rowsOfButtons.size
         val rowHeight = (h - padTop - padBottom - rowSpacing * (rowCount - 1)) / rowCount
         val innerW = w - padSide * 2
