@@ -364,6 +364,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         val isGlobe: Boolean = false,
         val swipeUp: SwipeData.Entry? = null,
         val swipeDown: SwipeData.Entry? = null,
+        val swipeUpLeft: SwipeData.Entry? = null,   // 斜向（目前只有空白鍵用）
+        val swipeUpRight: SwipeData.Entry? = null,
         val longPress: LongPressData.Menu? = null,
     )
 
@@ -416,8 +418,11 @@ class KeyboardView(context: Context) : ViewGroup(context) {
             swipeUp = swipeEntry(SwipeData.up[","], up = true),
             swipeDown = swipeEntry(SwipeData.down[","], up = false),
             longPress = if (skin.longPressEnabled) LongPressData.commaMenu else null))
+        // 空白鍵手勢：上滑＝中↔英、右上滑＝注音查碼、左上滑＝同音字、左右拖曳＝移動游標
         row4.add(KeySpec("", KeyAction.Space,
-            swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.ToggleLanguage), up = true)))
+            swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.ToggleLanguage), up = true),
+            swipeUpLeft = swipeEntry(SwipeData.Entry(null, KeyAction.EnterHomophone), up = true),
+            swipeUpRight = swipeEntry(SwipeData.Entry(null, KeyAction.EnterZhuyin), up = true)))
         row4.add(KeySpec(if (isEnglishMode) "." else "。", KeyAction.Letter("."),
             swipeUp = swipeEntry(SwipeData.up["."], up = true),
             swipeDown = swipeEntry(SwipeData.down["."], up = false),
@@ -629,7 +634,10 @@ class KeyButton(
                 // 空白鍵：水平拖曳 → 逐步移動游標
                 if (spec.action is KeyAction.Space && hasTouchStart) {
                     val dx = event.x - touchStartX
-                    if (!isDraggingCursor && abs(dx) > dp(15f) && abs(dx) > abs(event.y - touchStartY)) {
+                    val dy = event.y - touchStartY
+                    // 只有接近水平（|dx| > 2|dy|，約 27° 內）才鎖定成游標拖曳，
+                    // 斜向上滑（左上／右上）留到放開時判定手勢
+                    if (!isDraggingCursor && abs(dx) > dp(15f) && abs(dx) > 2 * abs(dy)) {
                         isDraggingCursor = true
                         stopLongPressTimer()
                         dragAnchorX = event.x
@@ -669,6 +677,11 @@ class KeyButton(
                 if (!hasTouchStart) return true
                 hasTouchStart = false
                 val dx = event.x - touchStartX; val dy = event.y - touchStartY
+                // 斜向上滑：上移超過門檻且水平分量明顯（|dx| > 0.45|dy|，離垂直約 24° 以上）
+                if (-dy > swipeThreshold && abs(dx) > 0.45f * abs(dy)) {
+                    val diag = if (dx > 0) spec.swipeUpRight else spec.swipeUpLeft
+                    diag?.let { host.onKey?.invoke(it.action); return true }
+                }
                 if (abs(dy) > swipeThreshold && abs(dy) > abs(dx)) {
                     if (dy < 0) spec.swipeUp?.let { host.onKey?.invoke(it.action); return true }
                     if (dy > 0) spec.swipeDown?.let { host.onKey?.invoke(it.action); return true }

@@ -20,7 +20,8 @@ sealed class KeyAction {
     object LineEnd : KeyAction()                           // 游標移至句尾（m 下滑）
     object PasteClipboard : KeyAction()                    // 貼上剪貼簿（v 下滑）
     object Tab : KeyAction()                               // Tab（b 下滑）
-    object EnterZhuyin : KeyAction()                       // 跳轉注音查碼（Enter 上滑）
+    object EnterZhuyin : KeyAction()                       // 跳轉注音查碼（Enter 上滑／空白鍵右上滑）
+    object EnterHomophone : KeyAction()                    // 同音字模式（空白鍵左上滑，同 ,,TO）
     // sweetlime 工具列動作
     object CursorLeft : KeyAction()                        // 游標左移
     object CursorRight : KeyAction()                       // 游標右移

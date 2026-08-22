@@ -368,6 +368,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                 engine.switchToMode("zh")
                 keyboardView?.showPage(KeyboardView.PageKind.ZHUYIN)
             }
+            is KeyAction.EnterHomophone -> engine.switchToMode("to")
             is KeyAction.CursorLeft -> moveCursor(-1)
             is KeyAction.CursorRight -> moveCursor(1)
             is KeyAction.DismissKeyboard -> requestHideSelf(0)
