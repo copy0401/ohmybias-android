@@ -9,8 +9,7 @@ Android 嘸蝦米（Boshiamy）鍵盤 — [ohmybias-ios](https://github.com/plat
 純 Kotlin、零第三方執行期依賴。
 
 <p align="center">
-  <img src="docs/keyboard-light.png" width="400" alt="鍵盤淺色主題 — 鍵帽角標、滑動提示與工具列"><br>
-  <img src="docs/keyboard-dark.png" width="400" alt="鍵盤深色主題">
+  <img src="docs/keyboard.png" width="560" alt="鍵盤字母頁 — 鍵帽角標、滑動提示與工具列">
 </p>
 
 ## 特色
