@@ -1,4 +1,4 @@
-0.4.0 — keyboard sizing you can actually adjust
-• New "key spacing" slider (0-150%): shrink the gaps between keys and the reclaimed space goes into the key faces. Total height stays the same, so narrow screens get bigger targets
-• Height and key spacing now apply live — drag the slider and the keyboard reshapes right there, no closing and reopening
-• Removed the ,,H command, which dumped the whole guide into your text field. The full guide now lives in Settings
+0.4.1 — delete selection, diagonal space swipes
+• Fix: Backspace did nothing on selected text (select-all deleted nothing; a partial selection deleted the character before it). It now removes the selection, like the system keyboard
+• Space key diagonal gestures: up-right for Zhuyin lookup, up-left for homophone mode. Settings guide corrected (horizontal drag moves the cursor)
+• Paired punctuation commits in one step; candidate bar is pre-built so the first suggestion no longer stutters
