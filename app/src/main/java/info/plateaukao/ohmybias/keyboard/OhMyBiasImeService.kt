@@ -572,7 +572,15 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     private fun deleteBackward() {
         val ic = currentInputConnection ?: return
-        ic.deleteSurroundingTextInCodePoints(1, 0)
+        // 有選取範圍時刪掉選取內容（同系統鍵盤）；deleteSurroundingText 只刪游標「前」的字，
+        // 全選時選取起點在 0，前面沒東西 → 什麼都不會刪。
+        // getSelectedText 在部分 WebView/Compose 欄位回 null，視同無選取。
+        val selected = ic.getSelectedText(0)
+        if (!selected.isNullOrEmpty()) {
+            ic.commitText("", 1)
+        } else {
+            ic.deleteSurroundingTextInCodePoints(1, 0)
+        }
     }
 
     private fun sendEnter() {
