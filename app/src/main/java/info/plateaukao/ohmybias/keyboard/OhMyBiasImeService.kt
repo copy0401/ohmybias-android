@@ -24,6 +24,8 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import info.plateaukao.ohmybias.MainActivity
+import info.plateaukao.ohmybias.UserPhrasesActivity
+import android.text.InputType
 import info.plateaukao.ohmybias.android.Prefs
 import info.plateaukao.ohmybias.android.SqliteFreqTracker
 import info.plateaukao.ohmybias.shared.CINTable
@@ -66,6 +68,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     private var builtSkinGeneration = -1
     /// 引擎目前載入的字表世代 —— 設定頁匯入新 liu.cin 後要重載
     private var loadedTableGeneration = CINTable.generation
+    /// 目前欄位是密碼類（含 visiblePassword）— 暫時切英文直通、離開欄位還原使用者的中英狀態。
+    /// 密碼不該經過組字；常用語設定頁的「組字碼」欄也靠這個讓使用者直接打碼不被組成中文。
+    private var forcedEnglishForField = false
 
     private val density get() = resources.displayMetrics.density
     private fun dp(v: Float): Int = (v * density).toInt()
@@ -272,10 +277,25 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         ) {
             setInputView(onCreateInputView())
         }
+        // 密碼類欄位：暫時英文直通（不寫 Prefs.lastEnglishMode — 離開欄位就還原）
+        forcedEnglishForField = isPasswordField(info)
+        engine.setEnglishMode(if (forcedEnglishForField) true else Prefs.lastEnglishMode)
+        keyboardView?.isEnglishMode = engine.isEnglishMode
         keyboardView?.syncSessionState(shouldOfferSwitching() && !Prefs.hideGlobeKey, returnLabel(info))
         keyboardView?.syncSpacingIfNeeded()
         refreshIdleBar()
         syncPageWithEngine()
+    }
+
+    private fun isPasswordField(info: EditorInfo?): Boolean {
+        val type = info?.inputType ?: return false
+        if (type and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
+        return when (type and InputType.TYPE_MASK_VARIATION) {
+            InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD -> true
+            else -> false
+        }
     }
 
     private fun shouldOfferSwitching(): Boolean = try {
@@ -321,7 +341,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                 engine.toggleEnglishMode()
                 keyboardView?.isEnglishMode = engine.isEnglishMode
                 keyboardView?.showPage(KeyboardView.PageKind.LETTERS)  // 從工具列切換時回到字母頁
-                Prefs.lastEnglishMode = engine.isEnglishMode
+                // 密碼欄位的暫時英文是欄位性質，不是使用者偏好 — 不記
+                if (!forcedEnglishForField) Prefs.lastEnglishMode = engine.isEnglishMode
                 refreshIdleBar()
             }
             is KeyAction.Page -> keyboardView?.showPage(action.page)
@@ -378,9 +399,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                 startActivity(intent)
             }
             is KeyAction.OpenUserPhrases -> {
-                val intent = Intent(this, MainActivity::class.java)
+                val intent = Intent(this, UserPhrasesActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                intent.putExtra(MainActivity.EXTRA_OPEN_USER_PHRASES, true)
                 startActivity(intent)
             }
             is KeyAction.Globe -> {

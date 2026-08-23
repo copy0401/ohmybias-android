@@ -47,6 +47,10 @@ class CINTable {
         // 文字 fallback + overlay（extras — 小型 dict）
         var overlay: MutableMap<String, MutableList<String>> = HashMap()
 
+        /// 常用語自訂組字碼（UserPhrases）— 與字表分開存：查詢時排在既有候選之後，
+        /// 不參與字頻排序，使用者設了跟字表撞碼的捷徑也不會把原本的字擠掉
+        var shortcuts: Map<String, List<String>> = emptyMap()
+
         var t2s: Map<String, String> = emptyMap()
         var s2t: Map<String, String> = emptyMap()
         var selKeys: List<Char> = "1234567890".toList()
@@ -184,6 +188,9 @@ class CINTable {
             return result
         }
 
+        /// 常用語捷徑 — 不含字表本身的候選（見 [shortcuts]）
+        fun shortcutLookup(code: String): List<String> = shortcuts[code.lowercase()] ?: emptyList()
+
         fun hasPrefix(prefix: String): Boolean {
             val p = prefix.lowercase()
             val d = binData
@@ -191,7 +198,7 @@ class CINTable {
                 val i = lowerBound(p)
                 if (i < entryCount && codeHasPrefix(d, i, p.toByteArray(Charsets.UTF_8))) return true
             }
-            return overlay.keys.any { it.startsWith(p) }
+            return overlay.keys.any { it.startsWith(p) } || shortcuts.keys.any { it.startsWith(p) }
         }
 
         fun validNextKeys(after: String): Set<Char> {
@@ -213,6 +220,9 @@ class CINTable {
                 }
             }
             for (key in overlay.keys) {
+                if (key.startsWith(p) && key.length > p.length) result.add(key[p.length])
+            }
+            for (key in shortcuts.keys) {
                 if (key.startsWith(p) && key.length > p.length) result.add(key[p.length])
             }
             return result
@@ -386,7 +396,9 @@ class CINTable {
         loadExtras(s)
         // 4. 簡繁對照表
         loadCharMaps(s)
-        // 5. maxCodeLength
+        // 5. 常用語自訂組字碼
+        s.shortcuts = UserPhrases.shared.shortcuts
+        // 6. maxCodeLength
         recomputeMaxCodeLength(s)
 
         publish(s)
@@ -403,6 +415,7 @@ class CINTable {
             f.delete()
         }
         if (s.entryCount == 0) parseCINIntoOverlay(cinPath, s)
+        s.shortcuts = UserPhrases.shared.shortcuts
         recomputeMaxCodeLength(s)
         publish(s)
     }
@@ -417,6 +430,7 @@ class CINTable {
             }
         }
         for (k in s.overlay.keys) if (k.length > maxLen) maxLen = k.length
+        for (k in s.shortcuts.keys) if (k.length > maxLen) maxLen = k.length
         s.maxCodeLength = maxLen
     }
 
@@ -522,6 +536,9 @@ class CINTable {
     // MARK: - 查詢（公開 API）
 
     fun lookup(code: String): List<String> = snap.lookup(code)
+
+    /// 常用語自訂組字碼的詞（不含字表候選）。撞碼時引擎把這些排在字表候選之後。
+    fun shortcutLookup(code: String): List<String> = snap.shortcutLookup(code)
 
     fun hasPrefix(prefix: String): Boolean = snap.hasPrefix(prefix)
 

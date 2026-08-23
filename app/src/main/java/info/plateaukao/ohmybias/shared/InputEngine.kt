@@ -816,6 +816,15 @@ class InputEngine(
         val raw = if (_isWildcard) cinTable.wildcardLookup(code) else cinTable.lookup(code)
         _currentCandidates = ranker.rank(raw, code, _lastCommitted, _inputMode, cinTable, freqTracker)
 
+        // 常用語自訂組字碼：排在字表候選之後（撞碼時不擠掉原本的字；獨佔碼時就是唯一候選，
+        // 「唯一候選自動送出」開著會直接上屏）。不經字頻排序 — 位置固定可預期。
+        if (!_isWildcard) {
+            val shortcuts = cinTable.shortcutLookup(code)
+            if (shortcuts.isNotEmpty()) {
+                _currentCandidates = _currentCandidates + shortcuts.filter { it !in _currentCandidates }
+            }
+        }
+
         // 模糊比對：無候選時嘗試相鄰鍵替換
         if (_currentCandidates.isEmpty() && !_isWildcard && code.length >= 2 && prefs.fuzzyMatch) {
             _currentCandidates = ranker.fuzzyLookup(code, cinTable)

@@ -34,6 +34,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 常用語設定（全螢幕編輯器）— 設定頁與鍵盤 ♥ 面板「設定」鍵都開這個 -->
+        <activity
+            android:name=".UserPhrasesActivity"
+            android:label="常用語設定"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="false" />
+
         <service
             android:name=".keyboard.OhMyBiasImeService"
             android:label="@string/ime_name"
