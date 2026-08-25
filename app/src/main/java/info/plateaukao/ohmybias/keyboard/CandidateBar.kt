@@ -41,6 +41,8 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     private val scrollView = HorizontalScrollView(context)
     private val stack = LinearLayout(context)
     private val toolbarStack = LinearLayout(context)
+    /// 右緣溢出指示 › — 候選/聯想超出可視範圍且還能往右捲時顯示，捲到底自動消失
+    private val overflowHint = TextView(context)
     private var languageButton: TextView? = null
 
     /// 工具列項目：由 cskin 的 toolbarButtons 按鈕 ID 對應而來
@@ -176,6 +178,21 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             leftMargin = dp(64f)
         })
 
+        overflowHint.text = "\u203a"
+        overflowHint.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 22f)
+        overflowHint.setTextColor(KeyboardTheme.textSub)
+        overflowHint.gravity = Gravity.CENTER
+        // 蓋在被截斷的候選字上，要有底色才不會與字重疊難讀（同列底色）
+        overflowHint.setBackgroundColor(KeyboardTheme.toolbarBackground)
+        overflowHint.setPadding(dp(3f), 0, dp(3f), 0)
+        overflowHint.visibility = View.GONE
+        // 不設 clickable — 觸控穿透到底下的捲動區，照樣可以從 › 上起手滑動
+        addView(overflowHint, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.MATCH_PARENT).apply {
+            gravity = Gravity.END
+        })
+        scrollView.setOnScrollChangeListener { _, _, _, _, _ -> updateOverflowHint() }
+        scrollView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateOverflowHint() }
+
         // 預建候選格：聯想列最多 ✕ + 10 個詞 = 11 格。第一次送字時才建 11 個 TextView
         // 實測（HNR320T）要 6.6ms，整個送字路徑 12ms；之後重用只要 0.5ms。
         // 移到建構時做，電子紙上第一次出聯想才不會多一次明顯的停頓。
@@ -195,6 +212,18 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         toolbarStack.visibility = if (idle || overlay) View.VISIBLE else View.GONE
         scrollView.visibility = if (idle) View.GONE else View.VISIBLE
         applyOverlayGeometry(overlay)
+        updateOverflowHint()
+    }
+
+    /// › 指示的顯示條件與位置：貼齊捲動區右緣（覆蓋模式時避開右側保留的那顆工具列鍵）
+    private fun updateOverflowHint() {
+        val show = scrollView.visibility == View.VISIBLE && scrollView.canScrollHorizontally(1)
+        if (show) {
+            val right = (scrollView.layoutParams as? LayoutParams)?.rightMargin ?: 0
+            val lp = overflowHint.layoutParams as LayoutParams
+            if (lp.rightMargin != right) { lp.rightMargin = right; overflowHint.layoutParams = lp }
+        }
+        overflowHint.visibility = if (show) View.VISIBLE else View.GONE
     }
 
     /// 覆蓋模式：捲動區寬度改 WRAP_CONTENT（右邊空出來的地方讓觸控落到工具列），

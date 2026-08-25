@@ -60,7 +60,7 @@ class SuggestionEngine(
         // 單字 fallback — 極簡版由萌典供應（一般語料，需尊重 skipChars）
         if (pool3.isEmpty() && !isSkipChar && recentCommitted.isNotEmpty()) {
             val p = recentCommitted.takeLast(1)
-            pool3 = wikiCorpus.suggestDomainTerms(p, 5)
+            pool3 = wikiCorpus.suggestDomainTerms(p, 10)
         }
 
         // Jingjing-ti 詞組擴充：獨立 pool，支援單字前綴
