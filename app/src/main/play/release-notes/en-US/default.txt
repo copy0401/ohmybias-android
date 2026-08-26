@@ -1,4 +1,4 @@
-0.4.1 — delete selection, diagonal space swipes
-• Fix: Backspace did nothing on selected text (select-all deleted nothing; a partial selection deleted the character before it). It now removes the selection, like the system keyboard
-• Space key diagonal gestures: up-right for Zhuyin lookup, up-left for homophone mode. Settings guide corrected (horizontal drag moves the cursor)
-• Paired punctuation commits in one step; candidate bar is pre-built so the first suggestion no longer stutters
+0.4.2 — phrase shortcodes, doubled suggestions
+• Common phrases can now have custom input codes: type the code to insert the phrase directly, without opening the ♥ panel. The phrase editor is now full-screen
+• Word suggestions after committing a character increased from 5 to 10
+• When suggestions or candidates overflow the bar, a "›" hint appears at the right edge and disappears once scrolled to the end
