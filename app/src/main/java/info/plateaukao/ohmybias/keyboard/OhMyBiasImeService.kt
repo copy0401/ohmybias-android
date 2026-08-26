@@ -5,6 +5,8 @@ import android.annotation.TargetApi
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.inputmethodservice.InputMethodService
 import android.os.Build
@@ -18,8 +20,10 @@ import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import android.view.inputmethod.CursorAnchorInfo
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
+import android.view.inputmethod.InputConnection
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -37,20 +41,48 @@ import kotlin.math.abs
 
 /// Android IME 主 service — InputEngine 的 Android delegate 實作。
 /// 對應 iOS 版 KeyboardViewController：按鍵事件 → InputEngine → delegate 回呼 → UI。
-class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
+class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKeyHandler.Host {
 
-    private lateinit var engine: InputEngine
+    override lateinit var engine: InputEngine
 
-    private var rootView: LinearLayout? = null
+    /// 實體鍵盤接上時的畫面模式（Prefs.hardKeyboardMode）；NONE = 沒接實體鍵盤、照常
+    private enum class HwMode { NONE, KEYPAD, FLOATING, BAR }
+
+    /// IME 根視圖：框架以 WRAP_CONTENT 掛載輸入視圖；實體鍵盤的浮動／底列模式要鋪滿
+    /// 整個視窗高度（氣泡才擺得到游標旁、toast 才有地方浮），把 AT_MOST 改成 EXACTLY 撐滿。
+    /// app 看到的 IME 高度不受影響 — 由 onComputeInsets 另行回報。
+    private class ImeRootLayout(context: android.content.Context) : LinearLayout(context) {
+        var fillHeight = false
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            val spec = if (fillHeight && MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST)
+                MeasureSpec.makeMeasureSpec(MeasureSpec.getSize(heightMeasureSpec), MeasureSpec.EXACTLY)
+            else heightMeasureSpec
+            super.onMeasure(widthMeasureSpec, spec)
+        }
+    }
+
+    private var rootView: ImeRootLayout? = null
+    /// 底部面板 = 候選列 + 鍵盤本體（導覽列 padding 墊在這層；覆蓋模式時根視圖透明）
+    private var panelView: LinearLayout? = null
     private var candidateBar: CandidateBar? = null
     private var keyboardView: KeyboardView? = null
     private var toastLabel: TextView? = null
     private var toastFrame: FrameLayout? = null
+    /// 浮動候選容器（浮動／底列模式才有；鋪滿面板上方的空間）
+    private var floatingHost: FloatingCandidateHost? = null
+    private var builtHwMode = HwMode.NONE
+    private val hwKeys = HardwareKeyHandler(this)
+    /// 候選列目前內容的鏡像 — 浮動氣泡與底列共用同一份狀態
+    private var barComposingText = ""
+    private var barCandidates: List<String> = emptyList()
+    private var barSuggestions = false
+    /// 本次輸入階段 requestCursorUpdates 是否已成功（沒有 → 氣泡退回貼底；游標一動再補要）
+    private var cursorUpdatesRequested = false
     private val handler = Handler(Looper.getMainLooper())
     private var toastHideRunnable: Runnable? = null
 
     /// 候選列目前顯示的是聯想詞（composing 為空時點選直接送出）
-    private var showingSuggestions = false
+    override var showingSuggestions = false
 
     private var builtForDark = false
     private var builtBodyHeight = 0
@@ -59,7 +91,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     private val prefsListener = android.content.SharedPreferences
         .OnSharedPreferenceChangeListener { _, key ->
             when (key) {
-                "keyboardHeightScale" -> handler.post { rebuildForHeightChange() }
+                "keyboardHeightScale", "hardKeyboardMode" -> handler.post { rebuildForHeightChange() }
                 "keySpacingScale" -> handler.post { keyboardView?.requestLayout() }
             }
         }
@@ -112,6 +144,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         super.onFinishInput()
         engine.resetSession()
         showingSuggestions = false
+        cursorUpdatesRequested = false
+        floatingHost?.setAnchor(null)
         refreshIdleBar()
     }
 
@@ -133,9 +167,139 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         )
         refreshIdleBar()
         syncPageWithEngine()
+        updateBarModeBody()
+        requestCursorUpdatesIfFloating()
     }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
+
+    // MARK: - 實體鍵盤
+
+    private fun hardKeyboardPresent(): Boolean {
+        val c = resources.configuration
+        return c.keyboard != Configuration.KEYBOARD_NOKEYS &&
+            c.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
+    }
+
+    private fun currentHwMode(): HwMode {
+        if (!hardKeyboardPresent()) return HwMode.NONE
+        return when (Prefs.hardKeyboardMode) {
+            Prefs.HW_MODE_FLOATING -> HwMode.FLOATING
+            Prefs.HW_MODE_BAR -> HwMode.BAR
+            else -> HwMode.KEYPAD
+        }
+    }
+
+    /// 浮動／底列：根視圖鋪滿、鍵盤本體收起、可觸區由 onComputeInsets 決定
+    private val isOverlayMode get() = builtHwMode == HwMode.FLOATING || builtHwMode == HwMode.BAR
+
+    /// 接了實體鍵盤一律顯示我們的視窗（三種模式都需要：鍵盤／底列／透明浮動層），
+    /// 不理會系統「實體鍵盤時顯示虛擬鍵盤」開關 — 關掉的話組字就看不見了
+    override fun onEvaluateInputViewShown(): Boolean =
+        if (hardKeyboardPresent()) true else super.onEvaluateInputViewShown()
+
+    /// 框架預設：有實體鍵盤且系統開關關閉時，app 隱性的 showSoftInput 直接被擋 — 同上理由放行
+    override fun onShowInputRequested(flags: Int, configChange: Boolean): Boolean =
+        if (hardKeyboardPresent()) true else super.onShowInputRequested(flags, configChange)
+
+    /// 覆蓋模式的視窗是整片透明層：告訴系統「內容」只從底部面板算起（app 不會被整片
+    /// 推上去），可觸區只有面板與浮動氣泡本身，其餘觸控穿透到 app
+    override fun onComputeInsets(outInsets: Insets) {
+        super.onComputeInsets(outInsets)
+        if (!isOverlayMode) return
+        val root = rootView ?: return
+        val loc = IntArray(2)
+        root.getLocationInWindow(loc)
+        val panel = panelView
+        val panelShown = panel != null && panel.visibility == View.VISIBLE
+        val contentTop = if (panelShown) loc[1] + panel.top else loc[1] + root.height
+        outInsets.contentTopInsets = contentTop
+        outInsets.visibleTopInsets = contentTop
+        outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+        outInsets.touchableRegion.setEmpty()
+        if (panelShown) {
+            outInsets.touchableRegion.union(Rect(loc[0], contentTop, loc[0] + root.width, loc[1] + root.height))
+        }
+        val bubble = Rect()
+        if (floatingHost?.bubbleRectInWindow(bubble) == true) outInsets.touchableRegion.union(bubble)
+    }
+
+    private fun requestCursorUpdatesIfFloating() {
+        if (builtHwMode != HwMode.FLOATING) return
+        cursorUpdatesRequested = try {
+            currentInputConnection?.requestCursorUpdates(
+                InputConnection.CURSOR_UPDATE_IMMEDIATE or InputConnection.CURSOR_UPDATE_MONITOR
+            ) == true
+        } catch (e: Exception) {
+            false  // 部分編輯器不支援 — 氣泡退回貼底
+        }
+    }
+
+    /// 切輸入框當下的 requestCursorUpdates 偶爾回 false（連線尚未 active）— 游標一動再補要一次
+    override fun onUpdateSelection(oldSelStart: Int, oldSelEnd: Int, newSelStart: Int, newSelEnd: Int, candidatesStart: Int, candidatesEnd: Int) {
+        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
+        if (builtHwMode == HwMode.FLOATING && !cursorUpdatesRequested) requestCursorUpdatesIfFloating()
+    }
+
+    /// 游標位置（螢幕座標，經 matrix 轉換）→ 浮動容器座標。游標在畫面外或欄位不回報時
+    /// 清掉錨點，氣泡退回貼底置中
+    override fun onUpdateCursorAnchorInfo(info: CursorAnchorInfo) {
+        super.onUpdateCursorAnchorInfo(info)
+        val host = floatingHost ?: return
+        val x = info.insertionMarkerHorizontal
+        val top = info.insertionMarkerTop
+        val bottom = info.insertionMarkerBottom
+        val visible = (info.insertionMarkerFlags and CursorAnchorInfo.FLAG_HAS_VISIBLE_REGION) != 0
+        if (x.isNaN() || top.isNaN() || bottom.isNaN() || !visible) {
+            host.setAnchor(null)
+            return
+        }
+        val pts = floatArrayOf(x, top, x, bottom)
+        info.matrix.mapPoints(pts)
+        val loc = IntArray(2)
+        host.getLocationOnScreen(loc)
+        host.setAnchor(RectF(pts[0] - loc[0], pts[1] - loc[1], pts[2] - loc[0], pts[3] - loc[1]))
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (currentInputConnection != null && hwKeys.onKeyDown(keyCode, event)) return true
+        // 浮動模式的視窗幾乎看不見 — Back 不該被它吃掉（預設會先收 IME 視窗）；
+        // 組字中則當 Esc 用
+        if (keyCode == KeyEvent.KEYCODE_BACK && builtHwMode == HwMode.FLOATING) {
+            if (engine.composing.isNotEmpty() || engine.isInSpecialMode) { engine.handleEscape(); return true }
+            if (showingSuggestions) { clearSuggestions(); return true }
+            return false
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (hwKeys.onKeyUp(keyCode, event)) return true
+        if (keyCode == KeyEvent.KEYCODE_BACK && builtHwMode == HwMode.FLOATING) return false
+        return super.onKeyUp(keyCode, event)
+    }
+
+    // HardwareKeyHandler.Host
+    override fun commitText(text: String) = commitToEditor(text)
+    override fun handleLetter(ch: String) = handleLetterKey(ch)
+    override fun toggleLanguage() {
+        if (engine.composing.isNotEmpty()) engine.handleEscape()
+        if (showingSuggestions) clearSuggestions()
+        applyLanguageToggle()
+        // 浮動模式沒有工具列的米/英可看 — 提示一下切到哪
+        if (builtHwMode == HwMode.FLOATING) showToast(if (engine.isEnglishMode) "英" else "米", 0.8)
+    }
+    override fun ensureShown() {
+        if (!isInputViewShown) requestShowSelf(0)
+    }
+
+    /// 底列模式：鍵盤本體平常收著，只在工具列開了面板（符號/emoji/常用語/123）時展開
+    private fun updateBarModeBody() {
+        if (builtHwMode != HwMode.BAR) return
+        val frame = toastFrame ?: return
+        val want = if (keyboardView?.isShowingToolbarPage == true) View.VISIBLE else View.GONE
+        if (frame.visibility != want) frame.visibility = want
+    }
 
     /// 導覽模式（手勢 ↔ 3 鍵）在鍵盤收起時切換的話，既有視圖不會收到新 insets
     /// 派發，padding 停在舊值 → 導覽列又蓋回最下排。每次視窗顯示時主動要求
@@ -144,14 +308,16 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         super.onWindowShown()
         if (Build.VERSION.SDK_INT >= 35) {
             rootView?.let { r ->
-                r.rootWindowInsets?.let { applyNavBarPadding(r, it) }
+                r.rootWindowInsets?.let { applyNavBarPadding(it) }
                 r.requestApplyInsets()
             }
         }
     }
 
+    /// 墊在底部面板（候選列＋鍵盤）上；浮動容器同樣墊，退回貼底的氣泡才不會壓到導覽列
     @TargetApi(35)
-    private fun applyNavBarPadding(v: View, insets: WindowInsets) {
+    private fun applyNavBarPadding(insets: WindowInsets) {
+        val v = panelView ?: return
         // navigationBars ∪ tappableElement：Android 15/16 導覽列在 navigationBars；
         // Android 17 起收鍵盤箭頭/地球飾件列只算在 tappableElement（nav 只剩手勢 pill）
         val type = WindowInsets.Type.navigationBars() or WindowInsets.Type.tappableElement()
@@ -169,6 +335,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             pad = (loc[1] + v.height - (screenBottom - insetBottom)).coerceIn(0, insetBottom)
         }
         if (pad != v.paddingBottom) v.setPadding(0, 0, 0, pad)
+        floatingHost?.let { h -> if (h.paddingBottom != pad) h.setPadding(0, 0, 0, pad) }
     }
 
     @SuppressLint("InflateParams")
@@ -177,30 +344,53 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         KeyboardTheme.keyFontScale = minOf(Prefs.keyboardHeightScale, 1.2f)
         builtForDark = KeyboardTheme.isDark
         builtSkinGeneration = SkinSettings.shared.generation
+        val hwMode = currentHwMode()
+        builtHwMode = hwMode
+        val overlay = hwMode == HwMode.FLOATING || hwMode == HwMode.BAR
 
-        val root = LinearLayout(this)
+        val root = ImeRootLayout(this)
         root.orientation = LinearLayout.VERTICAL
         root.clipChildren = false
         root.clipToPadding = false
-        root.setBackgroundColor(KeyboardTheme.toolbarBackground)
+        root.fillHeight = overlay
+
+        // 底部面板：候選列＋鍵盤本體。導覽列 padding 墊在這層而不是根視圖 —
+        // 覆蓋模式根視圖鋪滿整個視窗且透明，只有面板有底色
+        val panel = LinearLayout(this)
+        panel.orientation = LinearLayout.VERTICAL
+        panel.clipChildren = false
+        panel.clipToPadding = false
+        panel.setBackgroundColor(KeyboardTheme.toolbarBackground)
+        panelView = panel
+
+        // 浮動候選容器：覆蓋模式鋪滿面板上方（weight 1）；一般模式不掛
+        val host = if (overlay) FloatingCandidateHost(this) else null
+        floatingHost = host
+        if (host != null) {
+            root.addView(host, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+            host.bubble.onSelect = { idx -> didSelectCandidate(idx) }
+            host.bubble.onCommitComposing = { engine.commitComposingRaw() }
+            host.bubble.onDismissSuggestions = { clearSuggestions() }
+        }
+        root.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
 
         // Android 15 起 targetSdk 35+ 的 IME 視窗強制 edge-to-edge，會延伸到系統
         // 導覽列底下 — 不自己墊高的話 3 鍵導覽列／手勢區會直接蓋住最下排按鍵。
         // 舊版系統由框架自動把 IME 排在導覽列上方，不需處理。
         if (Build.VERSION.SDK_INT >= 35) {
-            root.setOnApplyWindowInsetsListener { v, insets ->
-                applyNavBarPadding(v, insets)
+            root.setOnApplyWindowInsetsListener { _, insets ->
+                applyNavBarPadding(insets)
                 insets
             }
             // insets 派發常在 layout 前（isLaidOut=false 時先全額墊）；layout 完成後
             // 用實際幾何重算一次，把 One UI 的多餘 padding 修掉（值不變就不再觸發）。
             root.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
-                v.rootWindowInsets?.let { applyNavBarPadding(v, it) }
+                v.rootWindowInsets?.let { applyNavBarPadding(it) }
             }
         }
 
         val bar = CandidateBar(this)
-        root.addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(CandidateBar.BAR_HEIGHT_DP)))
+        panel.addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(CandidateBar.BAR_HEIGHT_DP)))
 
         // 鍵盤本體外再包一層 FrameLayout 供 toast 疊加
         val frame = FrameLayout(this)
@@ -225,7 +415,15 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         })
 
         builtBodyHeight = keyboardBodyHeight()
-        root.addView(frame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, builtBodyHeight))
+        panel.addView(frame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, builtBodyHeight))
+
+        when (hwMode) {
+            // 浮動：沒有底列也沒有鍵盤 — 面板整個收起，只剩透明浮動層
+            HwMode.FLOATING -> panel.visibility = View.GONE
+            // 底列：只留候選列（含工具列）；本體開面板時才展開（updateBarModeBody）
+            HwMode.BAR -> frame.visibility = View.GONE
+            else -> {}
+        }
 
         bar.onSelect = { idx -> didSelectCandidate(idx) }
         bar.onCommitComposing = {
@@ -249,6 +447,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         keyboardView = kv
         toastLabel = toast
         toastFrame = frame
+        barComposingText = ""; barCandidates = emptyList(); barSuggestions = false
         refreshIdleBar()
         return root
     }
@@ -273,10 +472,11 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         // 深淺色、轉向、高度或皮膚改變時重建整個鍵盤（顏色/尺寸/工具列按鈕都在建構時
         // 解析；直接改 layoutParams IME 視窗不會可靠重量測）
         if (isDarkMode() != builtForDark || keyboardBodyHeight() != builtBodyHeight ||
-            SkinSettings.shared.generation != builtSkinGeneration
+            SkinSettings.shared.generation != builtSkinGeneration || currentHwMode() != builtHwMode
         ) {
             setInputView(onCreateInputView())
         }
+        requestCursorUpdatesIfFloating()
         // 密碼類欄位：暫時英文直通（不寫 Prefs.lastEnglishMode — 離開欄位就還原）
         forcedEnglishForField = isPasswordField(info)
         engine.setEnglishMode(if (forcedEnglishForField) true else Prefs.lastEnglishMode)
@@ -285,6 +485,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         keyboardView?.syncSpacingIfNeeded()
         refreshIdleBar()
         syncPageWithEngine()
+        updateBarModeBody()
     }
 
     private fun isPasswordField(info: EditorInfo?): Boolean {
@@ -337,14 +538,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
                 val right = engine.pairedRight(action.s)
                 if (right != null) commitPair(action.s, right) else commitToEditor(action.s)
             }
-            is KeyAction.ToggleLanguage -> {
-                engine.toggleEnglishMode()
-                keyboardView?.isEnglishMode = engine.isEnglishMode
-                keyboardView?.showPage(KeyboardView.PageKind.LETTERS)  // 從工具列切換時回到字母頁
-                // 密碼欄位的暫時英文是欄位性質，不是使用者偏好 — 不記
-                if (!forcedEnglishForField) Prefs.lastEnglishMode = engine.isEnglishMode
-                refreshIdleBar()
-            }
+            is KeyAction.ToggleLanguage -> applyLanguageToggle()
             is KeyAction.Page -> keyboardView?.showPage(action.page)
             is KeyAction.ToggleToolbarPage -> keyboardView?.toggleToolbarPage(action.page)
             is KeyAction.Shift -> {
@@ -392,7 +586,12 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             is KeyAction.EnterHomophone -> engine.switchToMode("to")
             is KeyAction.CursorLeft -> moveCursor(-1)
             is KeyAction.CursorRight -> moveCursor(1)
-            is KeyAction.DismissKeyboard -> requestHideSelf(0)
+            is KeyAction.DismissKeyboard -> {
+                // 底列模式：本體展開中先收本體，只剩底列時才收整個視窗
+                if (builtHwMode == HwMode.BAR && keyboardView?.isShowingToolbarPage == true) {
+                    keyboardView?.showPage(KeyboardView.PageKind.LETTERS)
+                } else requestHideSelf(0)
+            }
             is KeyAction.OpenSettings -> {
                 val intent = Intent(this, MainActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -445,6 +644,17 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         }
         // ,, 指令（如 ,,ZH）可能切換引擎模式 — 每次按鍵後同步頁面
         syncPageWithEngine()
+        updateBarModeBody()
+    }
+
+    /// 中英切換（工具列米/英、空白鍵上滑、實體鍵盤單按 Shift 共用）
+    private fun applyLanguageToggle() {
+        engine.toggleEnglishMode()
+        keyboardView?.isEnglishMode = engine.isEnglishMode
+        keyboardView?.showPage(KeyboardView.PageKind.LETTERS)  // 從工具列切換時回到字母頁
+        // 密碼欄位的暫時英文是欄位性質，不是使用者偏好 — 不記
+        if (!forcedEnglishForField) Prefs.lastEnglishMode = engine.isEnglishMode
+        refreshIdleBar()
     }
 
     /// Ctrl(+Shift)+按鍵組合送給編輯器（復原/重做 — EditText 內建 undo manager 走此路徑）
@@ -572,16 +782,36 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
         engine.selectCandidate(index)
     }
 
-    private fun clearSuggestions() {
+    override fun clearSuggestions() {
         showingSuggestions = false
         engine.clearCandidates()
         refreshIdleBar()
     }
 
     private fun refreshIdleBar() {
-        candidateBar?.setComposing("")
-        candidateBar?.setCandidates(emptyList(), suggestions = false)
+        setBarComposing("")
+        setBarCandidates(emptyList(), suggestions = false)
         candidateBar?.setEnglishMode(engine.isEnglishMode)
+    }
+
+    /// 候選列與浮動氣泡吃同一份狀態 — 所有更新都經這兩個入口
+    private fun setBarComposing(text: String) {
+        barComposingText = text
+        candidateBar?.setComposing(text)
+        syncBubble()
+    }
+
+    private fun setBarCandidates(candidates: List<String>, suggestions: Boolean) {
+        barCandidates = candidates
+        barSuggestions = suggestions
+        candidateBar?.setCandidates(candidates, suggestions)
+        syncBubble()
+    }
+
+    /// 氣泡只在浮動模式顯示（底列模式的容器只承載 toast）
+    private fun syncBubble() {
+        if (builtHwMode != HwMode.FLOATING) return
+        floatingHost?.bubble?.setContent(barComposingText, barCandidates, barSuggestions)
     }
 
     // MARK: - 編輯器操作（對應 textDocumentProxy）
@@ -664,7 +894,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
 
     override fun engineDidUpdateComposing(text: String) {
         showingSuggestions = false
-        candidateBar?.setComposing(text)
+        setBarComposing(text)
         syncPageWithEngine()
     }
 
@@ -680,7 +910,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
             }
             return
         }
-        candidateBar?.setCandidates(candidates, suggestions = false)
+        setBarCandidates(candidates, suggestions = false)
         if (candidates.isEmpty() && engine.composing.isEmpty()) {
             refreshIdleBar()
         }
@@ -708,7 +938,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     }
 
     override fun engineDidClearComposing() {
-        candidateBar?.setComposing("")
+        setBarComposing("")
         if (!showingSuggestions) refreshIdleBar()
         syncPageWithEngine()
     }
@@ -722,10 +952,13 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     }
 
     override fun engineDidSuggest(suggestions: List<String>) {
+        // 接實體鍵盤時聯想與軟鍵盤分開：可盲打，預設不顯示聯想（獨立於聯想總開關）。
+        // 攔在此處而非引擎層 — 引擎是跨平台共用碼，「是否有實體鍵盤」是 Android 平台狀態。
+        if (hardKeyboardPresent() && !Prefs.suggestWithHardKeyboard) return
         showingSuggestions = true
         engine.setCandidates(suggestions)
-        candidateBar?.setComposing("")
-        candidateBar?.setCandidates(suggestions, suggestions = true)
+        setBarComposing("")
+        setBarCandidates(suggestions, suggestions = true)
     }
 
     override fun engineDidPasteText(text: String) {
@@ -750,7 +983,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate {
     }
 
     private fun showToast(text: String, duration: Double) {
-        val toast = toastLabel ?: return
+        // 覆蓋模式鍵盤本體收著，toast 改浮在面板上方的容器裡（游標旁／底列上方）
+        val toast = (if (isOverlayMode) floatingHost?.toast else toastLabel) ?: return
         toastHideRunnable?.let { handler.removeCallbacks(it) }
         toast.text = "  $text  "
         toast.visibility = View.VISIBLE

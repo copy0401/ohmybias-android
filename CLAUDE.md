@@ -56,7 +56,11 @@ adb shell ime set info.plateaukao.ohmybias/.keyboard.OhMyBiasImeService  # force
 - `keyboard/`：`OhMyBiasImeService`（InputMethodService = InputEngineDelegate）、`KeyboardView`
   （字母/數字/符號/注音/九宮格五頁，自訂 ViewGroup 手動排版）、`KeyButton`（自繪+觸控：點按/上下滑/長按/
   連刪/空白鍵游標拖曳）、`CandidateBar`（候選列+工具列）、`CollectionPanelView`（符號/emoji/顏文字/常用語面板）、
-  `CollectionData`（由 iOS 版機械轉換）、`LongPressData`（android.icu 曆法日期）。
+  `CollectionData`（由 iOS 版機械轉換）、`LongPressData`（android.icu 曆法日期）、
+  `HardwareKeyHandler`（實體鍵盤 KeyEvent → 引擎，語意同 macOS 版 YabomishInputController）、
+  `FloatingCandidateView`（實體鍵盤「游標旁浮動」模式的候選氣泡；位置來自 CursorAnchorInfo）。
+  實體鍵盤三種畫面模式（`Prefs.hardKeyboardMode`：keypad／floating／bar）：浮動與底列把 IME 根視圖
+  撐滿整個視窗、以 `onComputeInsets` 回報內容高度與可觸區（其餘觸控穿透到 app）。
 - `MainActivity`：設定頁（啟用鍵盤/匯入 liu.cin(SAF)/皮膚/偏好/自訂詞/測試輸入框）。
 
 單一 APK（IME + 設定同 process）→ 不需 App Group，資料統一在 `filesDir/shared/`。

@@ -15,8 +15,11 @@ import android.view.WindowInsets
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
@@ -110,6 +113,8 @@ class MainActivity : Activity() {
         // ── 聯想 ──
         root.addView(sectionTitle("聯想"))
         root.addView(toggle("聯想詞（萌典詞組）", Prefs.suggestEnabled) { Prefs.suggestEnabled = it })
+        root.addView(toggle("接實體鍵盤時仍顯示聯想", Prefs.suggestWithHardKeyboard) { Prefs.suggestWithHardKeyboard = it })
+        root.addView(footnote("實體鍵盤可盲打，預設關閉聯想；與軟鍵盤分開，開啟則照常顯示"))
         root.addView(buttonFlow("常用語設定" to { startActivity(Intent(this, UserPhrasesActivity::class.java)) }))
 
         // ── 輸入 ──
@@ -169,6 +174,28 @@ class MainActivity : Activity() {
         root.addView(gapSeek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(footnote("鍵盤上下留白、排距與鍵距一起縮放；調小則鍵面變大更好按"))
 
+        // ── 實體鍵盤 ──
+        root.addView(sectionTitle("實體鍵盤"))
+        root.addView(footnote("接上藍牙／USB 鍵盤時的畫面（切換即時生效）"))
+        root.addView(dropdownChoice(
+            Prefs.hardKeyboardMode,
+            listOf(
+                Prefs.HW_MODE_KEYPAD to "照常顯示軟體鍵盤",
+                Prefs.HW_MODE_FLOATING to "只在游標旁浮出組字／候選氣泡",
+                Prefs.HW_MODE_BAR to "螢幕底部固定一條候選列",
+            ),
+        ) { Prefs.hardKeyboardMode = it })
+        root.addView(collapsible(
+            "實體鍵盤按鍵說明",
+            footnote(
+                """
+                字母組字、數字鍵選字、空白送字、Enter 原樣上屏、Esc 清組字；
+                單按 Shift 切換中英；Shift+字母 直接輸出小寫英文；Shift+Space 全形空白；
+                Shift+8（*）萬用字元；CapsLock 亮著時英文直通。
+                """.trimIndent()
+            ),
+        ))
+
         // ── 測試輸入 ──
         root.addView(sectionTitle("測試輸入"))
         val testInput = EditText(this)
@@ -176,9 +203,8 @@ class MainActivity : Activity() {
         testInput.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18f)
         root.addView(testInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        // ── 使用說明 ──（原本鍵盤內 ,,H 的完整說明搬來這裡，指令不再佔一個命令碼）
-        root.addView(sectionTitle("使用說明"))
-        root.addView(footnote(
+        // ── 使用說明 ──（收合，點開才看；原本鍵盤內 ,,H 的完整說明搬來這裡）
+        root.addView(collapsibleSection("使用說明", footnote(
             """
             ▎基本輸入
             輸入字根碼後按空白鍵送出；V/R/S/F 快速選第 2/3/4/5 個候選字；
@@ -196,10 +222,11 @@ class MainActivity : Activity() {
             ▎尺寸調整
             上方滑桿可調鍵盤高度（85–140%）與按鍵間距（0–150%），拖曳即時生效。
             """.trimIndent()
-        ))
+        )))
 
-        root.addView(sectionTitle("指令速查"))
-        root.addView(footnote("在輸入框打 ,, 開頭的指令（不必送出）"))
+        // ── 指令速查 ──（收合）
+        val cheatBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        cheatBox.addView(footnote("在輸入框打 ,, 開頭的指令（不必送出）"))
         val cheat = footnote(
             """
             ,,T 繁體  ,,S 簡體  ,,J 日文
@@ -214,7 +241,11 @@ class MainActivity : Activity() {
             """.trimIndent()
         )
         cheat.typeface = Typeface.MONOSPACE
-        root.addView(cheat)
+        cheatBox.addView(cheat)
+        root.addView(collapsibleSection("指令速查", cheatBox))
+
+        // ── 版本 ──（© 取代 @，最底部）
+        root.addView(versionFootnote())
 
         val scroll = ScrollView(this)
         scroll.addView(root)
@@ -258,10 +289,11 @@ class MainActivity : Activity() {
     private fun sectionTitle(text: String): TextView {
         val t = TextView(this)
         t.text = text
-        t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
-        t.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        // 分類標題明顯大於內文（footnote 13sp）— 一眼看得出分節
+        t.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 17f)
+        t.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         t.setTextColor(themeColor(android.R.attr.colorAccent))
-        t.setPadding(0, dp(20f), 0, dp(4f))
+        t.setPadding(0, dp(22f), 0, dp(6f))
         return t
     }
 
@@ -354,6 +386,75 @@ class MainActivity : Activity() {
                 if (c.measuredHeight > rowH) rowH = c.measuredHeight
             }
         }
+    }
+
+    /// 下拉選單（值 to 標籤）— 收合時只顯示目前選項，點開才列出全部
+    private fun dropdownChoice(initial: String, options: List<Pair<String, String>>, onChange: (String) -> Unit): Spinner {
+        val sp = Spinner(this)
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, options.map { it.second })
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        sp.adapter = adapter
+        sp.setSelection(options.indexOfFirst { it.first == initial }.coerceAtLeast(0))
+        // 首次 layout 時系統會補派一次目前選項的 onItemSelected — 忽略，只有真正變更才寫
+        var primed = false
+        sp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                if (!primed) { primed = true; return }
+                options.getOrNull(position)?.let { onChange(it.first) }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        return sp
+    }
+
+    /// 收合區塊：可點的標題列（附 ▸/▾ 指示），內容預設收起、點標題展開／收合。
+    /// 標題用 sectionTitle 的 accent 樣式，讓收合節與其他分類標題視覺一致。
+    private fun collapsibleSection(title: String, content: android.view.View): ViewGroup {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val header = sectionTitle("▸ $title")
+        header.isClickable = true
+        content.visibility = android.view.View.GONE
+        header.setOnClickListener {
+            val show = content.visibility != android.view.View.VISIBLE
+            content.visibility = if (show) android.view.View.VISIBLE else android.view.View.GONE
+            header.text = (if (show) "▾ " else "▸ ") + title
+        }
+        box.addView(header)
+        box.addView(content)
+        return box
+    }
+
+    /// 收合區塊（無 accent 標題版）：給實體鍵盤說明這種附屬在既有分類下的小段落用，
+    /// 標題是次要色的可點列，不另起一個分類標題
+    private fun collapsible(title: String, content: android.view.View): ViewGroup {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.VERTICAL
+        val header = footnote("▸ $title")
+        header.setTextColor(themeColor(android.R.attr.colorAccent))
+        header.isClickable = true
+        header.minHeight = dp(36f)
+        header.gravity = Gravity.CENTER_VERTICAL
+        content.visibility = android.view.View.GONE
+        header.setOnClickListener {
+            val show = content.visibility != android.view.View.VISIBLE
+            content.visibility = if (show) android.view.View.VISIBLE else android.view.View.GONE
+            header.text = (if (show) "▾ " else "▸ ") + title
+        }
+        box.addView(header)
+        box.addView(content)
+        return box
+    }
+
+    /// 版本列（最底部）：vX.Y.Z © Daniel Kao，置中、次要色
+    private fun versionFootnote(): TextView {
+        val name = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) { null } ?: ""
+        val t = footnote("v$name © Daniel Kao")
+        t.gravity = Gravity.CENTER
+        t.setPadding(0, dp(28f), 0, dp(8f))
+        return t
     }
 
     private fun toggle(text: String, initial: Boolean, onChange: (Boolean) -> Unit): Switch {

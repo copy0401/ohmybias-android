@@ -44,6 +44,12 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("suggestEnabled", true)
         set(v) = sp.edit().putBoolean("suggestEnabled", v).apply()
 
+    /// 接實體鍵盤時是否仍顯示聯想（與軟鍵盤分開）— 實體鍵盤可盲打，通常不需聯想，
+    /// 故預設關；此開關只在有實體鍵盤時生效，且仍受聯想總開關 suggestEnabled 節制
+    var suggestWithHardKeyboard: Boolean
+        get() = sp.getBoolean("suggestWithHardKeyboard", false)
+        set(v) = sp.edit().putBoolean("suggestWithHardKeyboard", v).apply()
+
     /// 無候選時嘗試相鄰鍵模糊比對
     override var fuzzyMatch: Boolean
         get() = sp.getBoolean("fuzzyMatch", true)
@@ -116,6 +122,17 @@ object Prefs : IMEPreferences {
     var keySpacingScale: Float
         get() = sp.getFloat("keySpacingScale", 1.0f)
         set(v) = sp.edit().putFloat("keySpacingScale", v.coerceIn(0f, 1.5f)).apply()
+
+    /// 實體鍵盤接上時的畫面：keypad = 照常顯示軟體鍵盤；floating = 只在游標旁浮出
+    /// 組字／候選氣泡；bar = 螢幕底部固定一條候選列（含工具列），不佔鍵盤高度。
+    /// 三種模式實體按鍵都經引擎組字；本偏好優先於系統「實體鍵盤時顯示虛擬鍵盤」開關
+    var hardKeyboardMode: String
+        get() = sp.getString("hardKeyboardMode", HW_MODE_KEYPAD) ?: HW_MODE_KEYPAD
+        set(v) = sp.edit().putString("hardKeyboardMode", v).apply()
+
+    const val HW_MODE_KEYPAD = "keypad"
+    const val HW_MODE_FLOATING = "floating"
+    const val HW_MODE_BAR = "bar"
 
     /// 詞庫開關 — 極簡版僅萌典詞組，預設開啟
     override fun domainEnabled(key: String): Boolean =
