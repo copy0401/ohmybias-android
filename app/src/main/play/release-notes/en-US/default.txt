@@ -1,6 +1,6 @@
 0.5.0 — physical keyboard support
-• Compose directly on a Bluetooth/USB keyboard: letters compose, digits select candidates, Space commits, Esc clears; Zhuyin/Pinyin modes work too
-• Three display modes for physical keyboards (pick in settings, applies immediately): keep the soft keyboard, a floating candidate bubble next to the cursor, or a fixed candidate bar at the bottom of the screen
-• Tap Shift to toggle Chinese/English, Shift+letter for temporary English, Shift+Space for full-width space, Shift+8 for the wildcard
-• New "keep suggestions with physical keyboard" switch (off by default for touch typing)
-• Settings cleanup: bolder section headers, collapsible help and command cheat sheet, version shown at the bottom
+• Compose on a Bluetooth/USB keyboard: letters compose, digits select, Space commits, Esc clears; Zhuyin/Pinyin too
+• Three display modes: soft keyboard, floating candidate bubble by the cursor, or a fixed bottom bar
+• Tap Shift to toggle Chinese/English; Shift+letter, Shift+Space, Shift+8 for English, full-width space, wildcard
+• "Keep suggestions with physical keyboard" switch (off by default)
+• Settings: bolder headers, collapsible help, version footer
