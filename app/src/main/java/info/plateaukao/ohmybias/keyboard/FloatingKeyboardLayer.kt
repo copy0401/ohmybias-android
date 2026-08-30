@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.view.MotionEvent
 import android.view.View
@@ -30,6 +31,7 @@ class FloatingKeyboardLayer(
     companion object {
         const val DRAG_BAR_DP = 22f
         const val CORNER_DP = 28f
+        const val CARD_RADIUS_DP = 14f
         const val MIN_WIDTH_DP = 240f
         const val MIN_BODY_DP = 140f
         const val CONTENT_INSET_DP = 6f
@@ -61,7 +63,7 @@ class FloatingKeyboardLayer(
 
         val bg = GradientDrawable()
         bg.setColor(KeyboardTheme.toolbarBackground)
-        bg.cornerRadius = dp(14f).toFloat()
+        bg.cornerRadius = dp(CARD_RADIUS_DP).toFloat()
         bg.setStroke(dp(1f), KeyboardTheme.border)
         card.background = bg
         card.clipToOutline = true
@@ -216,12 +218,13 @@ class FloatingKeyboardLayer(
         }
     }
 
-    /// 角落把手：畫 L 形角標，拖曳改變該角（對角固定）
+    /// 角落把手：把卡片本身的圓角弧「加粗」當作可拖曳的提示（不另畫記號），拖曳改變該角（對角固定）
     private inner class CornerHandle(context: Context, val left: Boolean, val top: Boolean) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
         }
+        private val oval = RectF()
         private var downX = 0f; private var downY = 0f
         private val start = Rect()
 
@@ -231,16 +234,21 @@ class FloatingKeyboardLayer(
         }
 
         override fun onDraw(canvas: Canvas) {
-            paint.color = KeyboardTheme.textSub
-            paint.strokeWidth = dp(2.5f).toFloat()
-            val m = dp(5f).toFloat()          // 距卡片邊緣
-            val len = dp(11f).toFloat()       // 角標邊長
-            val x0 = if (left) m else width - m
-            val y0 = if (top) m else height - m
-            val x1 = if (left) m + len else width - m - len
-            val y1 = if (top) m + len else height - m - len
-            canvas.drawLine(x0, y0, x1, y0, paint)
-            canvas.drawLine(x0, y0, x0, y1, paint)
+            // 沿著卡片圓角（半徑 CARD_RADIUS_DP）畫一段 90° 的粗弧，貼齊卡片邊緣、蓋在 1dp 邊框上
+            val sw = dp(4f).toFloat()
+            val r = dp(CARD_RADIUS_DP) - sw / 2
+            paint.strokeWidth = sw
+            paint.color = KeyboardTheme.border
+            val l = if (left) sw / 2 else width - sw / 2 - 2 * r
+            val t = if (top) sw / 2 else height - sw / 2 - 2 * r
+            oval.set(l, t, l + 2 * r, t + 2 * r)
+            val startAngle = when {
+                left && top -> 180f
+                !left && top -> 270f
+                left && !top -> 90f
+                else -> 0f
+            }
+            canvas.drawArc(oval, startAngle, 90f, false, paint)
         }
 
         @SuppressLint("ClickableViewAccessibility")
