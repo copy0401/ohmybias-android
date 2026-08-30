@@ -19,6 +19,10 @@ class SkinSettings private constructor() {
 
         /// 內建預設工具列（sweetlime toolbarButtons，全選(10)位置依使用者決定放 ♥ 常用語(5)）
         val defaultToolbarButtons = listOf(1, 3, 9, 7, 16, 17, 8, 5, 13, 2)
+
+        /// 平台端的工具列覆寫來源（Android：設定頁「自訂工具列」存在偏好；null／空 = 跟皮膚）。
+        /// 放在 shared 層以 lambda 注入，SkinSettings 本身不碰平台 API
+        var toolbarOverride: (() -> List<Int>?)? = null
     }
 
     /// 設定世代 — reload()/apply() 時遞增；KeyboardTheme 據此判斷解析快取是否過期
@@ -26,7 +30,15 @@ class SkinSettings private constructor() {
 
     var skinName = "sweetlime（內建）"; private set
     var isImported = false; private set
-    var toolbarButtons: List<Int> = defaultToolbarButtons; private set
+    /// 皮膚定義的工具列（未匯入時為內建預設）
+    var skinToolbarButtons: List<Int> = defaultToolbarButtons; private set
+
+    /// 實際生效的工具列：設定頁自訂優先，否則跟皮膚
+    val toolbarButtons: List<Int>
+        get() = toolbarOverride?.invoke()?.takeIf { it.isNotEmpty() } ?: skinToolbarButtons
+
+    /// 平台端改了工具列覆寫時呼叫 — 遞增世代讓鍵盤（工具列在建構時讀一次）知道要重建
+    fun invalidate() { generation += 1 }
 
     /// 'panel' = 九宮格數字、'row' = Row 數字
     var keyboardLayout = "panel"; private set
@@ -51,7 +63,7 @@ class SkinSettings private constructor() {
     private fun defaults() {
         skinName = "sweetlime（內建）"
         isImported = false
-        toolbarButtons = defaultToolbarButtons
+        skinToolbarButtons = defaultToolbarButtons
         keyboardLayout = "panel"
         spaceKeyLayout = "3"
         longPressLayout = "2"
@@ -96,7 +108,7 @@ class SkinSettings private constructor() {
                 val v = it.opt(i)
                 if (v is Number) ids.add(v.toInt())
             }
-            if (ids.isNotEmpty()) toolbarButtons = ids
+            if (ids.isNotEmpty()) skinToolbarButtons = ids
         }
         // 版面：新版頂層鍵優先，舊版 layout 區塊 fallback
         optStr(root, "spaceKeyLayout")?.let { spaceKeyLayout = it }

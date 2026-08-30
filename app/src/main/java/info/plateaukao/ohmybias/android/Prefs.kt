@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import info.plateaukao.ohmybias.shared.DefaultPreferences
 import info.plateaukao.ohmybias.shared.IMEPreferences
+import info.plateaukao.ohmybias.shared.SkinSettings
 
 /// 偏好設定 — SharedPreferences（單一 APK，IME 與設定頁直接共用；對應 iOS App Group UserDefaults）。
 object Prefs : IMEPreferences {
@@ -13,6 +14,7 @@ object Prefs : IMEPreferences {
         sp = context.getSharedPreferences("OhMyBiasPrefs", Context.MODE_PRIVATE)
         DefaultPreferences.backing = this
         DefaultPreferences.setSuggestEnabled = { suggestEnabled = it }
+        SkinSettings.toolbarOverride = { toolbarButtons }
     }
 
     /// 監看偏好變更 — IME 與設定頁同 process，設定頁一改鍵盤就能即時反應
@@ -129,6 +131,17 @@ object Prefs : IMEPreferences {
     var hardKeyboardMode: String
         get() = sp.getString("hardKeyboardMode", HW_MODE_KEYPAD) ?: HW_MODE_KEYPAD
         set(v) = sp.edit().putString("hardKeyboardMode", v).apply()
+
+    /// 設定頁自訂的工具列按鈕序列（ID 同 cskin toolbarButtons）；null = 跟皮膚。
+    /// 存成逗號分隔字串；setter 同時遞增皮膚世代，鍵盤下次顯示（或同 process 立即）重建工具列
+    var toolbarButtons: List<Int>?
+        get() = sp.getString("toolbarButtons", null)
+            ?.split(',')?.mapNotNull { it.trim().toIntOrNull() }?.takeIf { it.isNotEmpty() }
+        set(v) {
+            if (v.isNullOrEmpty()) sp.edit().remove("toolbarButtons").apply()
+            else sp.edit().putString("toolbarButtons", v.joinToString(",")).apply()
+            SkinSettings.shared.invalidate()
+        }
 
     const val HW_MODE_KEYPAD = "keypad"
     const val HW_MODE_FLOATING = "floating"

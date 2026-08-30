@@ -41,6 +41,12 @@
             android:windowSoftInputMode="adjustResize"
             android:exported="false" />
 
+        <!-- 自訂工具列（設定頁「主題」下） -->
+        <activity
+            android:name=".ToolbarSettingsActivity"
+            android:label="自訂工具列"
+            android:exported="false" />
+
         <service
             android:name=".keyboard.OhMyBiasImeService"
             android:label="@string/ime_name"

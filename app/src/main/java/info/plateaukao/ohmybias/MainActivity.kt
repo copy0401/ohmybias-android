@@ -46,6 +46,7 @@ class MainActivity : Activity() {
     private lateinit var importMessage: TextView
     private lateinit var skinStatus: TextView
     private lateinit var skinMessage: TextView
+    private lateinit var toolbarStatus: TextView
 
     private fun dp(v: Float): Int = (v * resources.displayMetrics.density).toInt()
 
@@ -109,6 +110,12 @@ class MainActivity : Activity() {
         ))
         skinMessage = statusFootnote()
         root.addView(skinMessage)
+        toolbarStatus = footnote("")
+        toolbarStatus.setPadding(0, dp(10f), 0, dp(2f))
+        root.addView(toolbarStatus)
+        root.addView(buttonFlow(
+            "自訂工具列" to { startActivity(Intent(this, ToolbarSettingsActivity::class.java)) },
+        ))
 
         // ── 聯想 ──
         root.addView(sectionTitle("聯想"))
@@ -264,6 +271,7 @@ class MainActivity : Activity() {
 
         refreshTableStatus()
         refreshSkinStatus()
+        refreshToolbarStatus()
 
         // 由檔案管理員／瀏覽器點 .cskin 進來（VIEW intent）— 詢問後套用
         handleViewIntent(intent)
@@ -273,6 +281,12 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleViewIntent(intent)
+    }
+
+    /// 從自訂工具列頁回來時更新狀態列
+    override fun onResume() {
+        super.onResume()
+        if (::toolbarStatus.isInitialized) refreshToolbarStatus()
     }
 
     // MARK: - UI helpers（Android 設定頁風格：accent 分類標題＋ripple 可點列，
@@ -600,5 +614,11 @@ class MainActivity : Activity() {
     private fun refreshSkinStatus() {
         SkinSettings.shared.reload()
         skinStatus.text = "目前主題：${SkinSettings.shared.skinName}"
+    }
+
+    private fun refreshToolbarStatus() {
+        val custom = Prefs.toolbarButtons
+        toolbarStatus.text = if (custom == null) "工具列：跟隨主題（${SkinSettings.shared.skinToolbarButtons.size} 顆）"
+                             else "工具列：自訂（${custom.size} 顆）"
     }
 }

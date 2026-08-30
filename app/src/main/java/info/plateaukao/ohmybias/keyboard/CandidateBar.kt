@@ -12,7 +12,6 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import info.plateaukao.ohmybias.R
 import info.plateaukao.ohmybias.android.Prefs
 import info.plateaukao.ohmybias.shared.SkinSettings
 
@@ -45,52 +44,6 @@ class CandidateBar(context: Context) : FrameLayout(context) {
     private val overflowHint = TextView(context)
     private var languageButton: TextView? = null
 
-    /// 工具列項目：由 cskin 的 toolbarButtons 按鈕 ID 對應而來
-    private class ToolbarItem(
-        val text: String,
-        val label: String,
-        val action: KeyAction,
-        val isLanguage: Boolean = false,
-        /// 非 0 = 改用圖示（ImageView，tint 跟著 toolbarColor）而非文字字樣
-        val iconRes: Int = 0,
-    )
-
-    /// 按鈕 ID → 動作（ID 定義同 sweetlime SkinSettings.TB_*；iOS 版因 extension API 缺失
-    /// 略過的編輯類動作，Android 依原始定義實作）。null = 不可實作 → 空白佔位。
-    /// （0 佔位符、6 剪貼本（無剪貼簿歷史 API，sweetlime 亦略過）、18-25/31 Hamster 專屬 → 空；
-    /// 32 起是本家自訂 ID，同步定義於鍵盤外觀編輯器 ohmybias-skin `data.js` TOOLBAR_ITEMS）
-    /// 圖示一律 Material Symbols Outlined 24px（Apache-2.0），tint 跟 toolbarColor；
-    /// 語意靠字才講得清的保留文字：米/英（要顯示目前模式）、簡、顏、ㄅ
-    private fun item(forButtonID: Int): ToolbarItem? = when (forButtonID) {
-        1 -> ToolbarItem("設", "設定", KeyAction.OpenSettings, iconRes = R.drawable.ic_tb_settings)
-        2 -> ToolbarItem("∨", "收折鍵盤", KeyAction.DismissKeyboard, iconRes = R.drawable.ic_tb_keyboard_hide)
-        3 -> ToolbarItem("米", "中英切換", KeyAction.ToggleLanguage, isLanguage = true)
-        4 -> ToolbarItem("簡", "簡繁切換", KeyAction.ToggleSimpTrad)
-        5 -> ToolbarItem("♥︎", "常用語", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.PHRASES), iconRes = R.drawable.ic_tb_favorite)
-        7 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL), iconRes = R.drawable.ic_tb_emoji_symbols)
-        8 -> ToolbarItem("☺︎", "Emoji", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.EMOJI), iconRes = R.drawable.ic_tb_mood)
-        9 -> {
-            val page = if (SkinSettings.shared.keyboardLayout == "row") KeyboardView.PageKind.NUMBERS
-                       else KeyboardView.PageKind.NUMERIC9
-            ToolbarItem("123", "數字鍵盤", KeyAction.ToggleToolbarPage(page), iconRes = R.drawable.ic_tb_dialpad)
-        }
-        10 -> ToolbarItem("全", "全選", KeyAction.SelectAll, iconRes = R.drawable.ic_tb_select_all)
-        11 -> ToolbarItem("複", "複製", KeyAction.Copy, iconRes = R.drawable.ic_tb_content_copy)
-        12 -> ToolbarItem("剪", "剪下", KeyAction.Cut, iconRes = R.drawable.ic_tb_content_cut)
-        13 -> ToolbarItem("貼", "貼上", KeyAction.PasteClipboard, iconRes = R.drawable.ic_tb_content_paste)
-        14 -> ToolbarItem("↶", "復原", KeyAction.Undo, iconRes = R.drawable.ic_tb_undo)
-        15 -> ToolbarItem("↷", "重做", KeyAction.Redo, iconRes = R.drawable.ic_tb_redo)
-        16 -> ToolbarItem("←", "游標左移", KeyAction.CursorLeft, iconRes = R.drawable.ic_tb_chevron_left)
-        17 -> ToolbarItem("→", "游標右移", KeyAction.CursorRight, iconRes = R.drawable.ic_tb_chevron_right)
-        26 -> ToolbarItem("顏", "顏文字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.KAOMOJIS))
-        27 -> ToolbarItem("ㄅ", "注音查碼", KeyAction.EnterZhuyin)
-        29 -> ToolbarItem("123", "九宮格數字", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.NUMERIC9), iconRes = R.drawable.ic_tb_dialpad)
-        30 -> ToolbarItem("符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL), iconRes = R.drawable.ic_tb_emoji_symbols)
-        // 32 = 本家自訂（Hamster 用到 31 為止）：語音輸入 — 切到系統語音輸入法，iOS 版無此能力
-        32 -> ToolbarItem("", "語音輸入", KeyAction.VoiceInput, iconRes = R.drawable.ic_tb_mic)
-        else -> null
-    }
-
     /// 語言鍵顯示目前輸入法：嘸蝦米 →「米」、英文 →「英」
     fun setEnglishMode(isEnglish: Boolean) {
         languageButton?.text = if (isEnglish) "英" else "米"
@@ -112,9 +65,9 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         addView(toolbarStack, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT).apply {
             leftMargin = dp(8f); rightMargin = dp(8f)
         })
-        // 照 cskin toolbarButtons 序列建構；做不到的按鈕 ID（含 0 佔位符）留空格
+        // 照工具列序列（設定頁自訂 > cskin toolbarButtons）建構；做不到的按鈕 ID（含 0 佔位符）留空格
         for (id in SkinSettings.shared.toolbarButtons) {
-            val item = item(forButtonID = id)
+            val item = ToolbarItems.item(id)
             if (item == null) {
                 toolbarStack.addView(View(context), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
                 continue
