@@ -1,6 +1,4 @@
-0.5.0 — physical keyboard support
-• Compose on a Bluetooth/USB keyboard: letters compose, digits select, Space commits, Esc clears; Zhuyin/Pinyin too
-• Three display modes: soft keyboard, floating candidate bubble by the cursor, or a fixed bottom bar
-• Tap Shift to toggle Chinese/English; Shift+letter, Shift+Space, Shift+8 for English, full-width space, wildcard
-• "Keep suggestions with physical keyboard" switch (off by default)
-• Settings: bolder headers, collapsible help, version footer
+0.6.0 — floating keyboard, custom toolbar
+• New "Floating keyboard" toolbar button: the keyboard becomes a card you can drag by the bottom handle and resize from the corners; app content is no longer pushed up. Tap again to dock it back
+• Settings ▸ Theme ▸ Customize toolbar: pick a slot, tap a button — arrange the 10-slot toolbar on the phone without re-importing a .cskin
+• Row gap now matches key gap for an even key grid

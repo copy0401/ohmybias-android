@@ -27,8 +27,8 @@ android {
         applicationId = "info.plateaukao.ohmybias"
         minSdk = 28
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.5.0"
+        versionCode = 16
+        versionName = "0.6.0"
     }
 
     // 正式簽章金鑰不進 repo — CI 由 GitHub Secrets 注入環境變數，
