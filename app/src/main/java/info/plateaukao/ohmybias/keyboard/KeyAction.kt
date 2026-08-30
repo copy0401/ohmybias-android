@@ -31,6 +31,7 @@ sealed class KeyAction {
     object Globe : KeyAction()                             // 切換系統輸入法
     object ShowImePicker : KeyAction()                     // 顯示系統輸入法選單（工具列米/英長按）
     object VoiceInput : KeyAction()                        // 語音輸入（切到系統語音輸入法）
+    object ToggleFloatingKeyboard : KeyAction()            // 浮動鍵盤 ↔ 貼底鍵盤（工具列 ID 33）
     // 編輯動作（iOS 鍵盤 extension 無 API；Android 依 sweetlime 原始定義實作）
     object SelectAll : KeyAction()                         // 全選
     object Copy : KeyAction()                              // 複製

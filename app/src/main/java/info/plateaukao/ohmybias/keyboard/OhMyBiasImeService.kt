@@ -70,6 +70,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     private var toastFrame: FrameLayout? = null
     /// 浮動候選容器（浮動／底列模式才有；鋪滿面板上方的空間）
     private var floatingHost: FloatingCandidateHost? = null
+    /// 浮動鍵盤層（Prefs.floatingKeyboard 開著、且沒接實體鍵盤覆蓋模式時才有）
+    private var floatingLayer: FloatingKeyboardLayer? = null
+    private var builtFloating = false
     private var builtHwMode = HwMode.NONE
     private val hwKeys = HardwareKeyHandler(this)
     /// 候選列目前內容的鏡像 — 浮動氣泡與底列共用同一份狀態
@@ -91,7 +94,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     private val prefsListener = android.content.SharedPreferences
         .OnSharedPreferenceChangeListener { _, key ->
             when (key) {
-                "keyboardHeightScale", "hardKeyboardMode", "toolbarButtons" -> handler.post { rebuildForHeightChange() }
+                "keyboardHeightScale", "hardKeyboardMode", "toolbarButtons", "floatingKeyboard" ->
+                    handler.post { rebuildForHeightChange() }
                 "keySpacingScale" -> handler.post { keyboardView?.requestLayout() }
             }
         }
@@ -193,6 +197,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     /// 浮動／底列：根視圖鋪滿、鍵盤本體收起、可觸區由 onComputeInsets 決定
     private val isOverlayMode get() = builtHwMode == HwMode.FLOATING || builtHwMode == HwMode.BAR
 
+    /// 浮動鍵盤：工具列 ID 33 開關。實體鍵盤的浮動／底列模式本來就沒有鍵盤本體可浮，不套用
+    private fun wantFloating(hwMode: HwMode): Boolean =
+        Prefs.floatingKeyboard && (hwMode == HwMode.NONE || hwMode == HwMode.KEYPAD)
+
     /// 接了實體鍵盤一律顯示我們的視窗（三種模式都需要：鍵盤／底列／透明浮動層），
     /// 不理會系統「實體鍵盤時顯示虛擬鍵盤」開關 — 關掉的話組字就看不見了
     override fun onEvaluateInputViewShown(): Boolean =
@@ -206,10 +214,21 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     /// 推上去），可觸區只有面板與浮動氣泡本身，其餘觸控穿透到 app
     override fun onComputeInsets(outInsets: Insets) {
         super.onComputeInsets(outInsets)
-        if (!isOverlayMode) return
         val root = rootView ?: return
         val loc = IntArray(2)
         root.getLocationInWindow(loc)
+        // 浮動鍵盤：整片透明層，app 內容完全不被推上去（內容高度 = 0）；只有卡片可觸
+        floatingLayer?.let { layer ->
+            val bottom = loc[1] + root.height
+            outInsets.contentTopInsets = bottom
+            outInsets.visibleTopInsets = bottom
+            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+            outInsets.touchableRegion.setEmpty()
+            val card = Rect()
+            if (layer.cardRectInWindow(card)) outInsets.touchableRegion.union(card)
+            return
+        }
+        if (!isOverlayMode) return
         val panel = panelView
         val panelShown = panel != null && panel.visibility == View.VISIBLE
         val contentTop = if (panelShown) loc[1] + panel.top else loc[1] + root.height
@@ -317,7 +336,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     /// 墊在底部面板（候選列＋鍵盤）上；浮動容器同樣墊，退回貼底的氣泡才不會壓到導覽列
     @TargetApi(35)
     private fun applyNavBarPadding(insets: WindowInsets) {
-        val v = panelView ?: return
+        // 浮動鍵盤：墊在整片浮動層上（卡片夾在 padding 之上，不會壓到導覽列）
+        val v = floatingLayer ?: panelView ?: return
         // navigationBars ∪ tappableElement：Android 15/16 導覽列在 navigationBars；
         // Android 17 起收鍵盤箭頭/地球飾件列只算在 tappableElement（nav 只剩手勢 pill）
         val type = WindowInsets.Type.navigationBars() or WindowInsets.Type.tappableElement()
@@ -334,7 +354,12 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             v.getLocationOnScreen(loc)
             pad = (loc[1] + v.height - (screenBottom - insetBottom)).coerceIn(0, insetBottom)
         }
-        if (pad != v.paddingBottom) v.setPadding(0, 0, 0, pad)
+        if (pad != v.paddingBottom) {
+            v.setPadding(0, 0, 0, pad)
+            // 顯示中重建 view（浮動 ↔ 貼底切換）時 insets 派發落在同一輪 traversal 的量測之後，
+            // setPadding 的 requestLayout 被吞掉、面板以 0 padding 定案 — 補排一次 layout
+            if (!v.isLaidOut) v.post { v.requestLayout() }
+        }
         floatingHost?.let { h -> if (h.paddingBottom != pad) h.setPadding(0, 0, 0, pad) }
     }
 
@@ -347,12 +372,20 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         val hwMode = currentHwMode()
         builtHwMode = hwMode
         val overlay = hwMode == HwMode.FLOATING || hwMode == HwMode.BAR
+        val floating = wantFloating(hwMode)
+        builtFloating = floating
+        builtBodyHeight = keyboardBodyHeight()
 
         val root = ImeRootLayout(this)
         root.orientation = LinearLayout.VERTICAL
         root.clipChildren = false
         root.clipToPadding = false
-        root.fillHeight = overlay
+        root.fillHeight = overlay || floating
+
+        // 浮動鍵盤層先建 — 卡片寬度決定鍵面字級（KeyButton 繪製時讀 KeyboardTheme）
+        val layer = if (floating) FloatingKeyboardLayer(this, dp(CandidateBar.BAR_HEIGHT_DP), builtBodyHeight) else null
+        floatingLayer = layer
+        if (layer != null) KeyboardTheme.keyFontScale *= floatingFontFactor(layer)
 
         // 底部面板：候選列＋鍵盤本體。導覽列 padding 墊在這層而不是根視圖 —
         // 覆蓋模式根視圖鋪滿整個視窗且透明，只有面板有底色
@@ -372,7 +405,12 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             host.bubble.onCommitComposing = { engine.commitComposingRaw() }
             host.bubble.onDismissSuggestions = { clearSuggestions() }
         }
-        root.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        if (layer != null) {
+            layer.attach(panel)
+            root.addView(layer, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT))
+        } else {
+            root.addView(panel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
 
         // Android 15 起 targetSdk 35+ 的 IME 視窗強制 edge-to-edge，會延伸到系統
         // 導覽列底下 — 不自己墊高的話 3 鍵導覽列／手勢區會直接蓋住最下排按鍵。
@@ -414,8 +452,14 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             gravity = Gravity.CENTER
         })
 
-        builtBodyHeight = keyboardBodyHeight()
-        panel.addView(frame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, builtBodyHeight))
+        // 浮動：本體吃掉卡片剩餘高度（縮放卡片即縮放鍵盤）；貼底：固定高度
+        panel.addView(frame, if (layer != null) LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+                             else LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, builtBodyHeight))
+        layer?.onResizeEnd = {
+            // 寬度定案 → 重算字級、重建鍵面（KeyButton 字級在繪製時讀，重建即套用）
+            KeyboardTheme.keyFontScale = minOf(Prefs.keyboardHeightScale, 1.2f) * floatingFontFactor(layer)
+            keyboardView?.reloadKeys()
+        }
 
         when (hwMode) {
             // 浮動：沒有底列也沒有鍵盤 — 面板整個收起，只剩透明浮動層
@@ -458,6 +502,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         return dp(base * Prefs.keyboardHeightScale)
     }
 
+    /// 浮動卡片比整寬窄時鍵面字級跟著縮（下限 0.7），滿寬則不變
+    private fun floatingFontFactor(layer: FloatingKeyboardLayer): Float =
+        layer.widthRatio.coerceIn(0.7f, 1f)
+
     private fun isDarkMode(): Boolean =
         (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
@@ -472,7 +520,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         // 深淺色、轉向、高度或皮膚改變時重建整個鍵盤（顏色/尺寸/工具列按鈕都在建構時
         // 解析；直接改 layoutParams IME 視窗不會可靠重量測）
         if (isDarkMode() != builtForDark || keyboardBodyHeight() != builtBodyHeight ||
-            SkinSettings.shared.generation != builtSkinGeneration || currentHwMode() != builtHwMode
+            SkinSettings.shared.generation != builtSkinGeneration || currentHwMode() != builtHwMode ||
+            wantFloating(currentHwMode()) != builtFloating
         ) {
             setInputView(onCreateInputView())
         }
@@ -615,6 +664,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             is KeyAction.VoiceInput -> {
                 engine.handleEscape()
                 startVoiceInput()
+            }
+            is KeyAction.ToggleFloatingKeyboard -> {
+                if (isOverlayMode) showToast("接實體鍵盤時無法浮動", 1.5)
+                else Prefs.floatingKeyboard = !Prefs.floatingKeyboard  // prefsListener → 整組 view 重建
             }
             // 編輯動作 — 同 sweetlime 原始實作（iOS 版因 extension API 缺失無法支援）
             is KeyAction.SelectAll -> {

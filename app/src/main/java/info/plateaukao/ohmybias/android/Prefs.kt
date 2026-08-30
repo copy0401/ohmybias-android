@@ -143,6 +143,24 @@ object Prefs : IMEPreferences {
             SkinSettings.shared.invalidate()
         }
 
+    /// 浮動鍵盤：鍵盤浮在畫面上（可拖曳、四角縮放），app 內容不被推上去；
+    /// 工具列 ID 33 切換，跨輸入框／app 保持直到再按一次
+    var floatingKeyboard: Boolean
+        get() = sp.getBoolean("floatingKeyboard", false)
+        set(v) = sp.edit().putBoolean("floatingKeyboard", v).apply()
+
+    /// 浮動鍵盤上次的位置與大小（dp；-1 = 尚未拖過，用預設）— 拖曳／縮放放手時寫入
+    var floatingRectDp: FloatArray?
+        get() {
+            val s = sp.getString("floatingRectDp", null) ?: return null
+            val v = s.split(',').mapNotNull { it.toFloatOrNull() }
+            return if (v.size == 4) v.toFloatArray() else null
+        }
+        set(v) {
+            if (v == null) sp.edit().remove("floatingRectDp").apply()
+            else sp.edit().putString("floatingRectDp", v.joinToString(",")).apply()
+        }
+
     const val HW_MODE_KEYPAD = "keypad"
     const val HW_MODE_FLOATING = "floating"
     const val HW_MODE_BAR = "bar"

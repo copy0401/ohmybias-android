@@ -1,6 +1,7 @@
 package info.plateaukao.ohmybias.keyboard
 
 import info.plateaukao.ohmybias.R
+import info.plateaukao.ohmybias.android.Prefs
 import info.plateaukao.ohmybias.shared.SkinSettings
 
 /// 工具列按鈕定義表 — CandidateBar 建列與設定頁「自訂工具列」共用同一份。
@@ -30,7 +31,7 @@ object ToolbarItems {
 
     /// 設定頁可選的按鈕（順序同鍵盤外觀編輯器 ohmybias-skin 的 TOOLBAR_ITEMS）。
     /// 29/30 是 9/7 的同義備用 ID，不入選單；皮膚帶進來的仍照常顯示與運作。
-    val selectable: List<Int> = listOf(PLACEHOLDER, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 26, 27, 32)
+    val selectable: List<Int> = listOf(PLACEHOLDER, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 26, 27, 32, 33)
 
     fun item(id: Int): Item? = when (id) {
         1 -> Item(id, "設", "設定", KeyAction.OpenSettings, iconRes = R.drawable.ic_tb_settings)
@@ -59,6 +60,9 @@ object ToolbarItems {
         30 -> Item(id, "符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL), iconRes = R.drawable.ic_tb_emoji_symbols)
         // 32 = 本家自訂（Hamster 用到 31 為止）：語音輸入 — 切到系統語音輸入法，iOS 版無此能力
         32 -> Item(id, "", "語音輸入", KeyAction.VoiceInput, iconRes = R.drawable.ic_tb_mic)
+        // 33 = 浮動鍵盤開關：浮動中顯示「停回底部」圖示，否則「浮出」圖示（切換時整組 view 重建）
+        33 -> Item(id, "", "浮動鍵盤", KeyAction.ToggleFloatingKeyboard,
+            iconRes = if (Prefs.floatingKeyboard) R.drawable.ic_tb_dock_to_bottom else R.drawable.ic_tb_pip)
         else -> null
     }
 

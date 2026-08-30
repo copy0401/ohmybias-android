@@ -58,7 +58,9 @@ adb shell ime set info.plateaukao.ohmybias/.keyboard.OhMyBiasImeService  # force
   連刪/空白鍵游標拖曳）、`CandidateBar`（候選列+工具列；按鈕定義表 `ToolbarItems` 與設定頁共用）、`CollectionPanelView`（符號/emoji/顏文字/常用語面板）、
   `CollectionData`（由 iOS 版機械轉換）、`LongPressData`（android.icu 曆法日期）、
   `HardwareKeyHandler`（實體鍵盤 KeyEvent → 引擎，語意同 macOS 版 YabomishInputController）、
-  `FloatingCandidateView`（實體鍵盤「游標旁浮動」模式的候選氣泡；位置來自 CursorAnchorInfo）。
+  `FloatingCandidateView`（實體鍵盤「游標旁浮動」模式的候選氣泡；位置來自 CursorAnchorInfo）、
+  `FloatingKeyboardLayer`（浮動鍵盤：工具列 ID 33 切換，`Prefs.floatingKeyboard`；整片透明層承載可拖曳／
+  四角縮放的卡片，幾何存 `Prefs.floatingRectDp`，可觸區同樣由 `onComputeInsets` 縮到卡片）。
   實體鍵盤三種畫面模式（`Prefs.hardKeyboardMode`：keypad／floating／bar）：浮動與底列把 IME 根視圖
   撐滿整個視窗、以 `onComputeInsets` 回報內容高度與可觸區（其餘觸控穿透到 app）。
 - `MainActivity`：設定頁（啟用鍵盤/匯入 liu.cin(SAF)/皮膚/偏好/自訂詞/測試輸入框）。
