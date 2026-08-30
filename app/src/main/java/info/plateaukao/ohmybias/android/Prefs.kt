@@ -119,7 +119,7 @@ object Prefs : IMEPreferences {
         get() = sp.getFloat("keyboardHeightScale", 1.0f)
         set(v) = sp.edit().putFloat("keyboardHeightScale", v.coerceIn(0.85f, 1.4f)).apply()
 
-    /// 按鍵間距縮放（0.0–1.5；1.0 = 預設 上下 6dp／左右 3dp／排距 8dp／鍵距 5dp）—
+    /// 按鍵間距縮放（0.0–1.5；1.0 = 預設 上下 6dp／左右 3dp／排距＝鍵距 5dp）—
     /// 調小讓鍵面更大更好按，0 = 鍵與鍵完全貼合
     var keySpacingScale: Float
         get() = sp.getFloat("keySpacingScale", 1.0f)

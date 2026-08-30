@@ -212,7 +212,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         val gap = Prefs.keySpacingScale
         laidOutSpacingScale = gap
         val padTop = dp(6f * gap); val padBottom = dp(6f * gap); val padSide = dp(3f * gap)
-        val rowSpacing = dp(8f * gap); val keySpacing = dp(5f * gap)
+        // 排距與鍵距相同（5dp）— 上下與左右的鍵縫等寬，鍵陣看起來才是均勻的格子
+        val keySpacing = dp(5f * gap); val rowSpacing = keySpacing
         val rowCount = rowsOfButtons.size
         val rowHeight = (h - padTop - padBottom - rowSpacing * (rowCount - 1)) / rowCount
         val innerW = w - padSide * 2
