@@ -119,6 +119,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         // 會在根視圖沒蓋到的區域（實測 A7 底部留了 53px）畫出不透明底色，變成一條蓋住
         // app 的空白帶 — 把視窗背景明確設為透明
         window.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        suppressNavScrim()
         SkinSettings.shared.reload()
         engine = InputEngine(freqTracker = SqliteFreqTracker())
         engine.delegate = this
@@ -221,9 +222,13 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         val root = rootView ?: return
         val loc = IntArray(2)
         root.getLocationInWindow(loc)
-        // 浮動鍵盤：整片透明層，app 內容完全不被推上去（內容高度 = 0）；只有卡片可觸
+        // 浮動鍵盤：整片透明層，app 內容完全不被推上去（內容高度 = 0）；只有卡片可觸。
+        // 注意用 decor 高度而非根視圖底 — Android 10 的 IME content frame 會在底部保留
+        // 導覽列高度（A7 實測 53px），根視圖到不了視窗底；用根視圖底當內容起點的話，
+        // app 會永遠留著 53px 的底部 inset，adjustResize 的 app 就在畫面底部露出
+        // 一條自家底色的空白帶
         floatingLayer?.let { layer ->
-            val bottom = loc[1] + root.height
+            val bottom = window.window?.decorView?.height?.takeIf { it > 0 } ?: (loc[1] + root.height)
             outInsets.contentTopInsets = bottom
             outInsets.visibleTopInsets = bottom
             outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
@@ -235,7 +240,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         if (!isOverlayMode) return
         val panel = panelView
         val panelShown = panel != null && panel.visibility == View.VISIBLE
-        val contentTop = if (panelShown) loc[1] + panel.top else loc[1] + root.height
+        // 同上：面板收起時內容起點要用 decor 高度（視窗真正的底），不是根視圖底
+        val contentTop = if (panelShown) loc[1] + panel.top
+                         else window.window?.decorView?.height?.takeIf { it > 0 } ?: (loc[1] + root.height)
         outInsets.contentTopInsets = contentTop
         outInsets.visibleTopInsets = contentTop
         outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_REGION
@@ -338,8 +345,30 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     /// 導覽模式（手勢 ↔ 3 鍵）在鍵盤收起時切換的話，既有視圖不會收到新 insets
     /// 派發，padding 停在舊值 → 導覽列又蓋回最下排。每次視窗顯示時主動要求
     /// 重新派發，讓 onCreateInputView 掛的 listener 拿到當下的導覽列高度。
+    /// Android 10（Q）IME 視窗的 DecorView 在底部放一條 navigationBarColor 的 scrim View
+    /// （A7 實測 53px 純白，浮動模式時就是那條蓋住 app 的白帶）。實測光設
+    /// navigationBarColor 透明會被框架在顯示流程蓋回白色 — 三管齊下：設透明色、
+    /// 清 FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS、把 decor 直屬的 scrim View（框架用
+    /// 裸 View 畫 status/nav 底色）alpha 歸零 — updateColorViews 會重設底色與
+    /// visibility，但不動 alpha，歸零後怎麼重畫都看不見
+    private fun suppressNavScrim() {
+        if (Build.VERSION.SDK_INT >= 35) return
+        val w = window.window ?: return
+        @Suppress("DEPRECATION")
+        if (w.navigationBarColor != Color.TRANSPARENT) w.navigationBarColor = Color.TRANSPARENT
+        w.clearFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        (w.decorView as? android.view.ViewGroup)?.let { decor ->
+            for (i in 0 until decor.childCount) {
+                val c = decor.getChildAt(i)
+                if (c.javaClass == View::class.java && c.alpha != 0f) c.alpha = 0f
+            }
+        }
+    }
+
     override fun onWindowShown() {
         super.onWindowShown()
+        suppressNavScrim()
+        handler.post { suppressNavScrim() }  // decor 的 scrim 可能在顯示流程稍後才建立
         if (Build.VERSION.SDK_INT >= 35) {
             rootView?.let { r ->
                 r.rootWindowInsets?.let { applyNavBarPadding(it) }
