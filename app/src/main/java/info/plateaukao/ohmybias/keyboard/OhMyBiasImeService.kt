@@ -115,6 +115,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
 
     override fun onCreate() {
         super.onCreate()
+        // 浮動鍵盤／實體鍵盤覆蓋模式的根視圖是透明層；Android 10 以下 IME 視窗的 decor
+        // 會在根視圖沒蓋到的區域（實測 A7 底部留了 53px）畫出不透明底色，變成一條蓋住
+        // app 的空白帶 — 把視窗背景明確設為透明
+        window.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         SkinSettings.shared.reload()
         engine = InputEngine(freqTracker = SqliteFreqTracker())
         engine.delegate = this
@@ -318,6 +322,17 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         val frame = toastFrame ?: return
         val want = if (keyboardView?.isShowingToolbarPage == true) View.VISIBLE else View.GONE
         if (frame.visibility != want) frame.visibility = want
+    }
+
+    /// 浮動切換後的短時間窗：期間視窗被（app 反射性 hideSoftInput）藏掉就重新顯示一次
+    private var floatingToggleGuardUntil = 0L
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        if (SystemClock.uptimeMillis() < floatingToggleGuardUntil) {
+            floatingToggleGuardUntil = 0  // 只救一次 — app 堅持要藏就隨它
+            handler.post { requestShowSelf(0) }
+        }
     }
 
     /// 導覽模式（手勢 ↔ 3 鍵）在鍵盤收起時切換的話，既有視圖不會收到新 insets
@@ -667,7 +682,13 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             }
             is KeyAction.ToggleFloatingKeyboard -> {
                 if (isOverlayMode) showToast("接實體鍵盤時無法浮動", 1.5)
-                else Prefs.floatingKeyboard = !Prefs.floatingKeyboard  // prefsListener → 整組 view 重建
+                else {
+                    // 切換瞬間 app 看到的鍵盤高度驟變，有些 app（如 einkbro 的網址輸入列，
+                    // Compose 欄位）會因此 restartInput 並反射性 hideSoftInput，把我們藏掉 —
+                    // 在短時間窗內被藏就自己要求重新顯示（一次性，不跟 app 對打）
+                    floatingToggleGuardUntil = SystemClock.uptimeMillis() + 2500
+                    Prefs.floatingKeyboard = !Prefs.floatingKeyboard  // prefsListener → 整組 view 重建
+                }
             }
             // 編輯動作 — 同 sweetlime 原始實作（iOS 版因 extension API 缺失無法支援）
             is KeyAction.SelectAll -> {
