@@ -57,15 +57,44 @@ class FloatingKeyboardLayer(
     /// 卡片矩形（本層座標，px）
     private val rect = Rect()
 
+    /// 角落提示弧目前是否顯示 — 平時藏著，拖曳（把手或角落）時亮起、放手 3 秒後消失；
+    /// 角落的觸控範圍不受影響，只是不畫提示
+    private var hintsVisible = false
+    private val hideHintsRunnable = Runnable { setHintsVisible(false) }
+
+    private fun setHintsVisible(v: Boolean) {
+        if (hintsVisible == v) return
+        hintsVisible = v
+        for (c in corners) c.invalidate()
+    }
+
+    /// 拖曳開始：亮起並取消倒數
+    private fun showHints() {
+        removeCallbacks(hideHintsRunnable)
+        setHintsVisible(true)
+    }
+
+    /// 拖曳放手：3 秒後熄滅
+    private fun scheduleHideHints() {
+        removeCallbacks(hideHintsRunnable)
+        postDelayed(hideHintsRunnable, 3000)
+    }
+
     init {
         clipChildren = false
         clipToPadding = false
 
+        // 底色與邊框分開：邊框畫在 foreground（蓋在子視圖上）— 拖曳把手貼齊卡片底緣、
+        // onDraw 又整片填色，畫在 background 的底邊框會被它蓋掉而看不見
         val bg = GradientDrawable()
         bg.setColor(KeyboardTheme.toolbarBackground)
         bg.cornerRadius = dp(CARD_RADIUS_DP).toFloat()
-        bg.setStroke(dp(1f), KeyboardTheme.border)
         card.background = bg
+        val border = GradientDrawable()
+        border.setColor(android.graphics.Color.TRANSPARENT)
+        border.cornerRadius = dp(CARD_RADIUS_DP).toFloat()
+        border.setStroke(dp(1f), KeyboardTheme.border)
+        card.foreground = border
         card.clipToOutline = true
         card.elevation = dp(10f).toFloat()
         // 卡片內的長按氣泡要能凸出鍵外（頂排氣泡伸進候選列區域，仍在卡片內）
@@ -206,13 +235,14 @@ class FloatingKeyboardLayer(
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY; start.set(rect)
                     parent.requestDisallowInterceptTouchEvent(true)
+                    showHints()
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     moveBy((event.rawX - downX).roundToInt(), (event.rawY - downY).roundToInt(), start)
                     return true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { persist(); return true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { persist(); scheduleHideHints(); return true }
             }
             return super.onTouchEvent(event)
         }
@@ -234,6 +264,7 @@ class FloatingKeyboardLayer(
         }
 
         override fun onDraw(canvas: Canvas) {
+            if (!hintsVisible) return
             // 沿著卡片圓角（半徑 CARD_RADIUS_DP）畫一段 90° 的粗弧，貼齊卡片邊緣、蓋在 1dp 邊框上
             val sw = dp(4f).toFloat()
             val r = dp(CARD_RADIUS_DP) - sw / 2
@@ -257,6 +288,7 @@ class FloatingKeyboardLayer(
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY; start.set(rect)
                     parent.requestDisallowInterceptTouchEvent(true)
+                    showHints()
                     return true
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -265,6 +297,7 @@ class FloatingKeyboardLayer(
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     persist()
+                    scheduleHideHints()
                     onResizeEnd?.invoke()
                     return true
                 }
