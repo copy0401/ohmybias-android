@@ -269,12 +269,12 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             x.setOnClickListener { onDismissSuggestions?.invoke() }
         }
 
-        // 候選 1–2 個時不顯示數字前綴（與 macOS 版一致的精簡顯示）
-        val showIndex = candidates.size > 2 && !suggestions
+        // 候選 1 個時不顯示數字前綴（與 macOS 版一致的精簡顯示）
+        val showIndex = candidates.size >= 0 && !suggestions
         for ((i, c) in candidates.withIndex()) {
             val b = obtainStackView(slot); slot += 1
             //b.text = if (showIndex && i < 9) "${i + 1} $c" else c
-            b.text = if (showIndex && i < candidates.count() && i > 0) "${i + 0} $c" else c
+            b.text = if (showIndex && i < candidates.count()) "${i + 0} $c" else c
             b.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
             b.setTextColor(
                 if (suggestions) 0xFF2F7CF6.toInt()
@@ -282,11 +282,11 @@ class CandidateBar(context: Context) : FrameLayout(context) {
             )
             b.setPadding(dp(9f), dp(4f), dp(9f), dp(4f))
             b.contentDescription = null
-            if (i == 0 && !suggestions && candidates.size > 2) {
+            if (i == 0 && !suggestions && candidates.size > 0) {
                 b.setTextColor(KeyboardTheme.candidateSelectedText)
                 val bg = GradientDrawable()
                 bg.setColor(KeyboardTheme.candidateSelectedBackground)
-                bg.cornerRadius = dp(6f).toFloat()
+                bg.cornerRadius = dp(1f).toFloat()
                 bg.setStroke(dp(KeyboardTheme.borderWidth).coerceAtLeast(1), KeyboardTheme.border)
                 b.background = bg
             } else {

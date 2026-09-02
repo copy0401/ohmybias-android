@@ -129,7 +129,7 @@ class FloatingCandidateView(context: Context) : HorizontalScrollView(context) {
         isHorizontalScrollBarEnabled = false
         val bg = GradientDrawable()
         bg.setColor(KeyboardTheme.toolbarBackground)
-        bg.cornerRadius = dp(8f).toFloat()
+        bg.cornerRadius = dp(1f).toFloat()
         bg.setStroke(dp(KeyboardTheme.borderWidth).coerceAtLeast(1), KeyboardTheme.border)
         background = bg
         elevation = dp(4f).toFloat()
@@ -201,10 +201,10 @@ class FloatingCandidateView(context: Context) : HorizontalScrollView(context) {
             x.contentDescription = "清除聯想"
             x.setOnClickListener { onDismissSuggestions?.invoke() }
         }
-        val showIndex = candidates.size > 1 && !suggestions
+        val showIndex = candidates.size >=0 && !suggestions
         for ((i, c) in candidates.withIndex()) {
             val b = obtainView(slot); slot += 1
-            b.text = if (showIndex && i < candidates.count() && i > 0) "${(i + 0) } $c" else c
+            b.text = if (showIndex && i < candidates.count()) "${(i + 0) } $c" else c
             //(showIndex && i < 10)改(showIndex && i < 10 && i > 0)
             //${(i + 1) 改 ${(i + 0)
             // (showIndex && i < 10 && i > 0) > (showIndex && i < candidates.count() && i > 0)
@@ -212,11 +212,11 @@ class FloatingCandidateView(context: Context) : HorizontalScrollView(context) {
             b.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
             b.setPadding(dp(8f), dp(4f), dp(8f), dp(4f))
             b.contentDescription = null
-            if (i == 0 && !suggestions && candidates.size > 1) {
+            if (i == 0 && !suggestions && candidates.size > 0) {
                 b.setTextColor(KeyboardTheme.candidateSelectedText)
                 val bg = GradientDrawable()
                 bg.setColor(KeyboardTheme.candidateSelectedBackground)
-                bg.cornerRadius = dp(6f).toFloat()
+                bg.cornerRadius = dp(1f).toFloat()
                 bg.setStroke(dp(KeyboardTheme.borderWidth).coerceAtLeast(1), KeyboardTheme.border)
                 b.background = bg
             } else {
