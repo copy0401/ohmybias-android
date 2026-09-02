@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputFilter
@@ -16,6 +17,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -96,6 +98,20 @@ class UserPhrasesActivity : Activity() {
         bar.addView(cancel, lp)
         bar.addView(save, LinearLayout.LayoutParams(lp))
         root.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        // targetSdk 36 強制 edge-to-edge（Android 15+）— 同 MainActivity 以 insets 當 padding
+        // 避開狀態列/導覽列；另加 ime()：強制 edge-to-edge 下 adjustResize 失效，鍵盤高度
+        // 得自己吃進 padding，底部取消/儲存列與列表才不會被鍵盤蓋住（issue #5）
+        if (Build.VERSION.SDK_INT >= 30) {
+            root.setOnApplyWindowInsetsListener { v, insets ->
+                val bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or
+                        WindowInsets.Type.ime()
+                )
+                v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                WindowInsets.CONSUMED
+            }
+        }
 
         setContentView(root)
 
