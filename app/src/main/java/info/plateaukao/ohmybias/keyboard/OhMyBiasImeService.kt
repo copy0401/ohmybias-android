@@ -519,6 +519,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             engine.commitComposingRaw()
         }
         bar.onToolbarKey = { action ->
+            haptic()
             // 聯想列是覆蓋在工具列上的 —— 點得到的那幾顆鍵要先把聯想收掉再做事，
             // 否則按完（例如收折鍵盤）下次開鍵盤還留著上一輪的過期聯想
             if (showingSuggestions) clearSuggestions()
@@ -529,6 +530,7 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
             clearSuggestions()
         }
         kv.onKey = { action -> handleKey(action) }
+        kv.onHapticDown = { haptic() }
 
         rootView = root
         candidateBar = bar
@@ -619,7 +621,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     }
 
     private fun handleKey(action: KeyAction) {
-        haptic()
+        // 觸覺回饋不在這裡給 — 鍵面在按下瞬間經 kv.onHapticDown 震（issue #4）；
+        // 工具列等 click 路徑各自呼叫 haptic()
         when (action) {
             is KeyAction.Letter -> handleLetterKey(action.ch)
             is KeyAction.Space -> handleSpaceKey()

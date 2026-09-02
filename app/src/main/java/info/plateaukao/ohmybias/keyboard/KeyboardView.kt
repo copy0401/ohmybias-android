@@ -27,6 +27,7 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     enum class PageKind { LETTERS, NUMBERS, SYMBOLS, ZHUYIN, NUMERIC9, SYMBOL_PANEL, EMOJI, KAOMOJIS, PHRASES }
 
     var onKey: ((KeyAction) -> Unit)? = null
+    var onHapticDown: (() -> Unit)? = null  // 按下瞬間觸覺回饋（issue #4）— service 掛 haptic()
 
     var currentPage = PageKind.LETTERS
     /// 中英切換改變第三排前導鍵（英/⇧）與標點 — 變更時就地重建，
@@ -170,13 +171,14 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     ) {
         if (!MemoryBudget.canAfford(MemoryBudget.collectionPanel)) return
         val panel = CollectionPanelView(context, sections, fontSize, showSettings = settingsAction != null)
-        if (settingsAction != null) panel.onSettings = { onKey?.invoke(settingsAction) }
+        if (settingsAction != null) panel.onSettings = { onHapticDown?.invoke(); onKey?.invoke(settingsAction) }
         panel.onInsert = { text ->
+            onHapticDown?.invoke()
             if (recordRecent) RecentEmojis.record(text)
             onKey?.invoke(KeyAction.Symbol(text))
         }
-        panel.onBack = { onKey?.invoke(KeyAction.Page(PageKind.LETTERS)) }
-        panel.onBackspace = { onKey?.invoke(KeyAction.Backspace) }
+        panel.onBack = { onHapticDown?.invoke(); onKey?.invoke(KeyAction.Page(PageKind.LETTERS)) }
+        panel.onBackspace = { onHapticDown?.invoke(); onKey?.invoke(KeyAction.Backspace) }
         addView(panel)
         panelView = panel
         requestLayout()
@@ -347,6 +349,7 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         if (commit && button != null) {
             button.spec.longPress?.let { menu ->
                 val option = menu.options[popup.selectedIndex]
+                onHapticDown?.invoke()
                 onKey?.invoke(KeyAction.Symbol(LongPressData.resolve(option)))
             }
         }
@@ -602,6 +605,8 @@ class KeyButton(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 setPressedState(true)
+                // 觸覺回饋在按下瞬間給（issue #4）— 之前跟著 ACTION_UP 的 onKey 才震，有 lag 感
+                host.onHapticDown?.invoke()
                 isInLongPress = false
                 isDraggingCursor = false
                 touchStartX = event.x; touchStartY = event.y; hasTouchStart = true
@@ -610,6 +615,7 @@ class KeyButton(
                     // 連刪節奏同 sweetlime（400ms 起跑、50ms/字 = 20 字/秒）
                     val rep = object : Runnable {
                         override fun run() {
+                            host.onHapticDown?.invoke()
                             host.onKey?.invoke(KeyAction.Backspace)
                             handler2.postDelayed(this, 50)
                         }
@@ -645,9 +651,11 @@ class KeyButton(
                     }
                     if (isDraggingCursor) {
                         while (event.x - dragAnchorX > cursorDragStep) {
+                            host.onHapticDown?.invoke()
                             host.onKey?.invoke(KeyAction.CursorRight); dragAnchorX += cursorDragStep
                         }
                         while (dragAnchorX - event.x > cursorDragStep) {
+                            host.onHapticDown?.invoke()
                             host.onKey?.invoke(KeyAction.CursorLeft); dragAnchorX -= cursorDragStep
                         }
                         return true
