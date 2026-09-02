@@ -53,7 +53,7 @@ class CINTable {
 
         var t2s: Map<String, String> = emptyMap()
         var s2t: Map<String, String> = emptyMap()
-        var selKeys: List<Char> = "1234567890".toList()
+        var selKeys: List<Char> = "0123456789".toList()
         var cinName: String = ""
         var maxCodeLength: Int = 4
 

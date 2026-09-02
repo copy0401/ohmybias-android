@@ -273,7 +273,8 @@ class CandidateBar(context: Context) : FrameLayout(context) {
         val showIndex = candidates.size > 2 && !suggestions
         for ((i, c) in candidates.withIndex()) {
             val b = obtainStackView(slot); slot += 1
-            b.text = if (showIndex && i < 9) "${i + 1} $c" else c
+            //b.text = if (showIndex && i < 9) "${i + 1} $c" else c
+            b.text = if (showIndex && i < candidates.count() && i > 0) "${i + 0} $c" else c
             b.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
             b.setTextColor(
                 if (suggestions) 0xFF2F7CF6.toInt()

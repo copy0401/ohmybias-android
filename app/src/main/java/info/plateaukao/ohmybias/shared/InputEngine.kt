@@ -431,7 +431,12 @@ class InputEngine(
 
     /// VRSF 快選：處理則回 true
     fun handleVRSF(char: String): Boolean = sync {
-        val map = listOf("v" to 1, "r" to 2, "s" to 3, "f" to 4)
+        //val map = listOf("v" to 1, "r" to 2, "s" to 3, "f" to 4)
+        val map = listOf("v" to 1, "r" to 2, "s" to 3, "f" to 4 ,"w" to 5 ,
+            "l" to 6 , "c" to 7 , "b" to 8 , "k" to 9 ,"j" to 10,
+            "1" to 1, "2" to 2, "3" to 3, "4" to 4 ,"5" to 5 ,
+            "6" to 6 , "7" to 7 , "8" to 8 , "9" to 9 ,"0" to 0 ,
+        ) // 4 > 10 加 數字鍵選字
         for ((letter, idx) in map) {
             if (char == letter && _currentCandidates.size > idx && !cinTable.hasPrefix(_composing + letter)) {
                 commitText(_currentCandidates[idx]); return@sync true

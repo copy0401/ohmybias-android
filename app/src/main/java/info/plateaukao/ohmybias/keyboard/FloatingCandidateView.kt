@@ -184,7 +184,10 @@ class FloatingCandidateView(context: Context) : HorizontalScrollView(context) {
         }
         visibility = View.VISIBLE
         scrollTo(0, 0)
-        composingLabel.text = composing
+        composingLabel.text = String.format("%-4s", composing.uppercase())
+        // composing > composing.uppercase() //cc 改大寫顯示
+        // composing.uppercase() > String.format("%-4s", composing.uppercase()) //cc 減少 每打一個字就偏移一次
+        // val table = CINTable() ; table.maxCodeLength // =4
         composingLabel.visibility = if (composing.isEmpty()) View.GONE else View.VISIBLE
 
         var slot = 1
@@ -201,7 +204,11 @@ class FloatingCandidateView(context: Context) : HorizontalScrollView(context) {
         val showIndex = candidates.size > 1 && !suggestions
         for ((i, c) in candidates.withIndex()) {
             val b = obtainView(slot); slot += 1
-            b.text = if (showIndex && i < 10) "${(i + 1) % 10} $c" else c
+            b.text = if (showIndex && i < candidates.count() && i > 0) "${(i + 0) } $c" else c
+            //(showIndex && i < 10)改(showIndex && i < 10 && i > 0)
+            //${(i + 1) 改 ${(i + 0)
+            // (showIndex && i < 10 && i > 0) > (showIndex && i < candidates.count() && i > 0)
+            // {(i + 0) % 10} > {(i + 0)} 超過10只會顯示個位數 取消
             b.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 20f)
             b.setPadding(dp(8f), dp(4f), dp(8f), dp(4f))
             b.contentDescription = null
