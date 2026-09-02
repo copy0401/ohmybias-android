@@ -54,7 +54,10 @@ class HardwareKeyHandler(private val host: Host) {
     /// 超出候選數回 -1
     private fun candidateIndex(ch: Char): Int {
         if (ch !in '0'..'9') return -1
-        val idx = if (ch == '0') 9 else ch - '1'
+        //val idx = if (ch == '0') 9 else ch - '1'
+        
+        // 候選項索引改有 0 開始 //實體鍵盤 數字鍵選字
+        val idx = if (ch == '0') 0 else ch - '0'
         return if (idx < engine.currentCandidates.size) idx else -1
     }
 
