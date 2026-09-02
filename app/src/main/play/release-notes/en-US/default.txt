@@ -1,4 +1,4 @@
-0.6.0 — floating keyboard, custom toolbar
-• New "Floating keyboard" toolbar button: the keyboard becomes a card you can drag by the bottom handle and resize from the corners; app content is no longer pushed up. Tap again to dock it back
-• Settings ▸ Theme ▸ Customize toolbar: pick a slot, tap a button — arrange the 10-slot toolbar on the phone without re-importing a .cskin
-• Row gap now matches key gap for an even key grid
+0.6.1 — Zhuyin lookup space fix
+• Fixed: after switching from English mode to Zhuyin lookup, space (1st tone) committed a space instead of composing (#6)
+• Fixed: backspace in that state deleted editor text instead of clearing Zhuyin symbols
+• Fixed: hardware keyboard couldn't use Zhuyin/Pinyin lookup while in English mode
