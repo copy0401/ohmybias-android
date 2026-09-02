@@ -228,7 +228,7 @@ class CandidateBar(context: Context) : FrameLayout(context) {
 
     fun setComposing(text: String) {
         if (composingLabel.text?.toString() == text) return  // 未變就不量測/不重排
-        composingLabel.text = text
+        composingLabel.text = text.uppercase()
         updateToolbarVisibility()  // 內含 applyComposingMargin
     }
 
