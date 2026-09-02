@@ -854,10 +854,10 @@ class InputEngine(
             delegate?.engineDidCommit(text)
         }
         if (_composing.isNotEmpty() && !_isSameSoundMode) {
-            freqTracker.record(_composing, text)
-            freqTracker.recordBigram(_lastCommitted, text)
+            //freqTracker.record(_composing, text)
+            //freqTracker.recordBigram(_lastCommitted, text)
             if (_prevCommitted.isNotEmpty()) {
-                freqTracker.recordTrigram(_prevCommitted, _lastCommitted, text)
+                //freqTracker.recordTrigram(_prevCommitted, _lastCommitted, text)
             }
             freqTracker.saveIfNeeded()
         }
