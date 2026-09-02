@@ -287,6 +287,18 @@ class MainActivity : Activity() {
         // ── 版本 ──（© 取代 @，最底部）
         root.addView(versionFootnote())
 
+        // 開關列彼此拉開間距 — 一連串開關貼太近容易誤觸旁邊那顆；
+        // 每顆上下各留 8dp（相鄰兩顆間隔 16dp），並把觸控高度加大到 52dp
+        for (i in 0 until root.childCount) {
+            val child = root.getChildAt(i)
+            if (child is Switch) {
+                child.minimumHeight = dp(52f)
+                (child.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+                    it.topMargin = dp(8f); it.bottomMargin = dp(8f)
+                }
+            }
+        }
+
         val scroll = ScrollView(this)
         scroll.addView(root)
         // targetSdk 36 強制 edge-to-edge（Android 15+ 系統列透明、內容延伸到底下）—
