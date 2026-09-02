@@ -63,6 +63,16 @@ object ToolbarItems {
         // 33 = 浮動鍵盤開關：浮動中顯示「停回底部」圖示，否則「浮出」圖示（切換時整組 view 重建）
         33 -> Item(id, "", "浮動鍵盤", KeyAction.ToggleFloatingKeyboard,
             iconRes = if (Prefs.floatingKeyboard) R.drawable.ic_tb_dock_to_bottom else R.drawable.ic_tb_pip)
+        //自定義工具列按鈕
+        87 -> Item(id,"*", "*", KeyAction.Letter("*")) // 目前還不能使用萬用字元
+        88 -> Item(id,"[", "[", KeyAction.Letter("["))//部分碼表 為輸入碼
+        89 -> Item(id,"]", "]", KeyAction.Letter("]")) //部分碼表 為輸入碼
+        90 -> Item(id,"，", "，", KeyAction.Letter(","))//部分碼表 為輸入碼
+        91 -> Item(id,"。", "。", KeyAction.Letter(".")) //部分碼表 為輸入碼
+        92 -> Item(id,"\\t", "Tab鍵", KeyAction.Tab)
+        93 -> Item(id,"音", "同音字模式", KeyAction.EnterHomophone)
+        107 -> Item(id, "符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL))
+        127 -> Item(id, "注", "注音查碼", KeyAction.EnterZhuyin)
         else -> null
     }
 

@@ -1,8 +1,21 @@
 {
-  "skinInfo": { "name": "預設主題" },
-  "keyboardLayout": "panel",
+  "skinInfo": {
+    "name": "預設主題"
+  },
+  "keyboardLayout": "row",
   "longPressLayout": "2",
-  "toolbarButtons": [3, 7, 29, 8, 5, 26, 13, 1, 32, 2],
+  "toolbarButtons": [
+    32,
+    0,
+    92,
+    127,
+    93,
+    107,
+    13,
+    1,
+    3,
+    2
+  ],
   "enableSwipeUpActions": true,
   "enableSwipeDownActions": true,
   "enableLongPressActions": true,
@@ -26,7 +39,7 @@
       "toolbarColor": "#000000",
       "candidateUnselectedText": "#000000",
       "candidateSelectedText": "#000000",
-      "candidateSelectedBg": "#FFFFFF",
+      "candidateSelectedBg": "#F0F0F0",
       "panelLeftBg": "#F0F0F0",
       "panelRightBg": "#FFFFFF",
       "panelLeftText": "#000000",
@@ -71,10 +84,10 @@
     }
   },
   "groups": {
-    "lowercaseSize": 23,
+    "lowercaseSize": 21,
     "systemSize": 16,
     "numberSize": 24,
-    "swipeSize": 10,
+    "swipeSize": 6,
     "panelLargeSymbolSize": 26,
     "panelLargeEmojiSize": 30,
     "panelLargeKaomojiSize": 20
