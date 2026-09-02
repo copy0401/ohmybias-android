@@ -236,7 +236,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
                 for (i in 0 until n) widths[i] = prevUnitWidth
                 val total = prevUnitWidth * n + spacingTotal
                 startX = padSide + (innerW - total) / 2
-            } else if (hasSpace) {
+            }
+            else if (hasSpace) {
                 // 含空白鍵的排：其他鍵 = multiplier × 上一排單位寬，空白吃剩餘
                 val unit = if (prevUnitWidth > 0f) prevUnitWidth
                            else (innerW - spacingTotal) / specs.sumOf { it.widthMultiplier.toDouble() }.toFloat()
@@ -384,58 +385,56 @@ class KeyboardView(context: Context) : ViewGroup(context) {
 
     private fun letterRows(): List<List<KeySpec>> {
         val skin = SkinSettings.shared
-        val r1 = "qwertyuiop".map { it.toString() }
-        val r2 = "asdfghjkl".map { it.toString() }
-        val r3 = "zxcvbnm".map { it.toString() }
+        val r0a = "1234567890".map { it.toString() }
+        val r0b = "-=".map { it.toString() }
+        val r1 = "qwertyuiop[]".map { it.toString() }
+        val r2 = "asdfghjkl;'\\".map { it.toString() }
+        val r3a = "zxcv".map { it.toString() }
+        val r3b = "bnm,./`".map { it.toString() }
         // 鍵面大寫：英文模式看 shift；中文模式看偏好（字根表慣用大寫）。action 一律小寫碼
         val uppercase = if (isEnglishMode) isShifted else Prefs.uppercaseLettersInChinese
         fun key(s: String): KeySpec = KeySpec(
+            widthMultiplier = 1f,
             label = if (uppercase) s.uppercase() else s,
             action = KeyAction.Letter(s),
             swipeUp = swipeEntry(SwipeData.up[s], up = true),
             swipeDown = swipeEntry(SwipeData.down[s], up = false),
             longPress = if (skin.longPressEnabled) LongPressData.letterMenu(s) else null,
         )
-        // 第三排前導鍵（sweetlime 版面）：中文模式＝「英」切換鍵（shift 位置）、英文模式＝shift
-        val row3 = mutableListOf<KeySpec>()
-        if (isEnglishMode) {
-            row3.add(KeySpec(if (isShifted) "⬆" else "⇧", KeyAction.Shift, isSpecial = true))
-        } else {
-            row3.add(KeySpec("英", KeyAction.ToggleLanguage, isSpecial = true))
-        }
-        row3 += r3.map(::key)
-        row3.add(KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 1.4f, isSpecial = true))
 
-        // 底列（sweetlime）：[123] [🌐] [,] [大空白] [.] [⏎]
-        // 工具列已有 123（按鈕 ID 9/29）時省略底列 123 鍵，寬度讓給空白鍵
-        // 空白鍵永遠優先：逗號句號固定標準鍵寬，不採用皮膚 spaceKeyLayout 的放大值
-        val show123Key = skin.toolbarButtons.none { it == 9 || it == 29 }
-        val numericPage = if (skin.keyboardLayout == "row") PageKind.NUMBERS else PageKind.NUMERIC9
+
+        val row1 = mutableListOf<KeySpec>()
+        row1 += r1.map(::key)
+        val row2 = mutableListOf<KeySpec>()
+        row2 += r2.map(::key)
+        val row3 = mutableListOf<KeySpec>()
+        row3 += r3a.map(::key)
+        row3 += r3b.map(::key)
+        row3.add(KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 1f, isSpecial = true))
         val row4 = mutableListOf<KeySpec>()
-        if (show123Key) {
-            row4.add(KeySpec("123", KeyAction.Page(numericPage), isSpecial = true))
+        if (isEnglishMode) {
+            row4.add(KeySpec(if (isShifted) "⬆" else "⇧", KeyAction.Shift, isSpecial = true,  widthMultiplier = 1.0f))
+            row4.add(KeySpec("A", KeyAction.ToggleLanguage,  widthMultiplier = 2.0f, isSpecial = true))
+        } else {
+            row4.add(KeySpec("⌵", KeyAction.DismissKeyboard,  widthMultiplier = 1.0f,isSpecial = true,))
+            row4.add(KeySpec("中", KeyAction.ToggleLanguage, widthMultiplier = 2.0f,  isSpecial = true,
+                swipeUp = swipeEntry(SwipeData.Entry("", KeyAction.EnterZhuyin), up = true) , //注音反查
+                swipeDown = swipeEntry(SwipeData.Entry(null, KeyAction.EnterHomophone), up = true) // 同音字
+            ))
         }
-        if (needsInputModeSwitchKey) {
-            row4.add(KeySpec("🌐", KeyAction.Globe, widthMultiplier = 1.0f, isSpecial = true, isGlobe = true))
-        }
-        row4.add(KeySpec(",", KeyAction.Letter(","),
-            swipeUp = swipeEntry(SwipeData.up[","], up = true),
-            swipeDown = swipeEntry(SwipeData.down[","], up = false),
-            longPress = if (skin.longPressEnabled) LongPressData.commaMenu else null))
-        // 空白鍵手勢：上滑＝中↔英、右上滑＝注音查碼、左上滑＝同音字、左右拖曳＝移動游標
+
+        //空格
         row4.add(KeySpec("", KeyAction.Space,
             swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.ToggleLanguage), up = true),
             swipeUpLeft = swipeEntry(SwipeData.Entry(null, KeyAction.EnterHomophone), up = true),
             swipeUpRight = swipeEntry(SwipeData.Entry(null, KeyAction.EnterZhuyin), up = true)))
-        row4.add(KeySpec(if (isEnglishMode) "." else "。", KeyAction.Letter("."),
-            swipeUp = swipeEntry(SwipeData.up["."], up = true),
-            swipeDown = swipeEntry(SwipeData.down["."], up = false),
-            longPress = if (skin.longPressEnabled) LongPressData.periodMenu else null))
-        row4.add(KeySpec(returnKeyLabel, KeyAction.Newline, widthMultiplier = 1.4f, isSpecial = true,
-            swipeUp = swipeEntry(SwipeData.Entry("ㄅ", KeyAction.EnterZhuyin), up = true),
-            swipeDown = swipeEntry(SwipeData.Entry(null, KeyAction.Newline), up = false)))
+        // return
+        row4.add(KeySpec(returnKeyLabel, KeyAction.Newline, widthMultiplier = 3.0f, isSpecial = true,
+            swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.Newline), up = false), // 插入新行
+            //swipeUp = swipeEntry(SwipeData.Entry("ㄅ", KeyAction.EnterZhuyin), up = true),
+            swipeDown = swipeEntry(SwipeData.Entry(null, KeyAction.Newline), up = false))) // 插入新行
 
-        return listOf(r1.map(::key), r2.map(::key), row3, row4)
+        return listOf(r0a.map(::key)+r0b.map(::key),row1, row2, row3, row4)
     }
 
     /// Row 數字/半形符號頁（sweetlime symbolic_row）：數字列＋常用半形符號、大空白
@@ -504,18 +503,19 @@ class KeyboardView(context: Context) : ViewGroup(context) {
     private fun zhuyinRows(): List<List<KeySpec>> {
         val tones = setOf("ˊ", "ˇ", "ˋ", "˙")
         fun zy(s: String): KeySpec =
-            if (s in tones) KeySpec(s, KeyAction.ZhuyinTone(s))
+            if (s in tones) KeySpec(s, KeyAction.ZhuyinTone(s), widthMultiplier = 1f)
             else KeySpec(s, KeyAction.ZhuyinSymbol(s))
         val r1 = listOf("ㄅ", "ㄉ", "ˇ", "ˋ", "ㄓ", "ˊ", "˙", "ㄚ", "ㄞ", "ㄢ").map(::zy)
         val r2 = listOf("ㄆ", "ㄊ", "ㄍ", "ㄐ", "ㄔ", "ㄗ", "ㄧ", "ㄛ", "ㄟ", "ㄣ").map(::zy)
         val r3 = listOf("ㄇ", "ㄋ", "ㄎ", "ㄑ", "ㄕ", "ㄘ", "ㄨ", "ㄜ", "ㄠ", "ㄤ").map(::zy)
-        val r4 = (listOf("ㄈ", "ㄌ", "ㄏ", "ㄒ", "ㄖ", "ㄙ", "ㄩ", "ㄝ", "ㄡ", "ㄥ").map(::zy) + zy("ㄦ"))
+        val r4 = (listOf("ㄈ", "ㄌ", "ㄏ", "ㄒ", "ㄖ", "ㄙ", "ㄩ", "ㄝ", "ㄡ", "ㄥ").map(::zy))
         val row5 = listOf(
-            KeySpec("退出", KeyAction.ZhuyinExit, widthMultiplier = 1.5f, isSpecial = true),
-            KeySpec("空白（一聲）", KeyAction.Space, widthMultiplier = 5.5f),
-            KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 1.8f, isSpecial = true),
+            KeySpec("退出", KeyAction.ZhuyinExit, widthMultiplier = 2f, isSpecial = true),
+            KeySpec("空白（一聲）", KeyAction.Space, widthMultiplier = 5f),
+            KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 2f, isSpecial = true),
+            zy("ㄦ")
         )
-        return listOf(r1, r2, r3, r4, row5)
+        return listOf(r1, r2, r3, r4, row5 )
     }
 }
 
@@ -587,8 +587,8 @@ class KeyButton(
         hintPaint.textSize = dp(KeyboardTheme.swipeHintFontSize)
         hintPaint.color = KeyboardTheme.textSub
         spec.swipeUp?.hint?.let { hint ->
-            hintPaint.textAlign = Paint.Align.CENTER
-            canvas.drawText(hint, width / 2f, dp(2f) - hintPaint.ascent(), hintPaint)
+            hintPaint.textAlign = Paint.Align.RIGHT
+            canvas.drawText(hint, width - dp(4f), dp(2f) - hintPaint.ascent(), hintPaint)
         }
         spec.swipeDown?.hint?.let { hint ->
             hintPaint.textAlign = Paint.Align.RIGHT
