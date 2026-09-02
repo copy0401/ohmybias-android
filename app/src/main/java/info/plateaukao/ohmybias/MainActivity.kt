@@ -133,6 +133,39 @@ class MainActivity : Activity() {
         root.addView(toggle("送字後顯示字根提示", Prefs.showCodeHint) { Prefs.showCodeHint = it })
         root.addView(toggle("成對標點自動補右半", Prefs.punctuationPairing) { Prefs.punctuationPairing = it })
         root.addView(toggle("按鍵觸覺回饋", Prefs.hapticFeedback) { Prefs.hapticFeedback = it })
+
+        // 震動強度滑桿：0 = 系統預設（KEYBOARD_TAP）；1–100 自訂效果，放開滑桿試震一下
+        val hapLabel = footnote("")
+        fun updateHapLabel() {
+            hapLabel.text = if (Prefs.hapticStrength == 0)
+                "震動強度：系統預設（往右調自訂強度，即時生效）"
+            else
+                "震動強度：${Prefs.hapticStrength}%（0 = 系統預設，即時生效）"
+        }
+        updateHapLabel()
+        hapLabel.setPadding(0, dp(2f), 0, dp(2f))
+        root.addView(hapLabel)
+        val hapSeek = SeekBar(this)
+        hapSeek.max = 100
+        hapSeek.progress = Prefs.hapticStrength.coerceIn(0, 100)
+        hapSeek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                Prefs.hapticStrength = progress
+                updateHapLabel()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                // 放開時用目前強度試震，邊調邊感受
+                if (Prefs.hapticStrength > 0) {
+                    val vib = if (android.os.Build.VERSION.SDK_INT >= 31)
+                        (getSystemService(VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager).defaultVibrator
+                    else
+                        @Suppress("DEPRECATION") (getSystemService(VIBRATOR_SERVICE) as android.os.Vibrator)
+                    vib.vibrate(info.plateaukao.ohmybias.android.customHapticEffect(Prefs.hapticStrength))
+                }
+            }
+        })
+        root.addView(hapSeek, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(toggle("米模式字母鍵顯示大寫", Prefs.uppercaseLettersInChinese) { Prefs.uppercaseLettersInChinese = it })
         root.addView(toggle("隱藏 🌐 鍵（空白鍵加寬）", Prefs.hideGlobeKey) { Prefs.hideGlobeKey = it })
         root.addView(footnote("隱藏後長按工具列「米/英」可開輸入法選單"))

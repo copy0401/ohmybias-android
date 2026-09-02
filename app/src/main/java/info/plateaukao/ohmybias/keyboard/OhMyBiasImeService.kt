@@ -614,9 +614,21 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
 
     // MARK: - Key handling
 
+    private val vibrator by lazy {
+        if (Build.VERSION.SDK_INT >= 31)
+            (getSystemService(VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager).defaultVibrator
+        else
+            @Suppress("DEPRECATION") (getSystemService(VIBRATOR_SERVICE) as android.os.Vibrator)
+    }
+
     private fun haptic() {
-        if (Prefs.hapticFeedback) {
+        if (!Prefs.hapticFeedback) return
+        val strength = Prefs.hapticStrength
+        if (strength <= 0) {
+            // 系統預設：KEYBOARD_TAP 跟隨系統觸覺強度設定
             rootView?.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        } else {
+            vibrator.vibrate(info.plateaukao.ohmybias.android.customHapticEffect(strength))
         }
     }
 

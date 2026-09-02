@@ -103,6 +103,12 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("hapticFeedback", true)
         set(v) = sp.edit().putBoolean("hapticFeedback", v).apply()
 
+    /// 震動強度（0–100）：0 = 系統預設（KEYBOARD_TAP，跟隨系統觸覺強度）；
+    /// 1–100 = 自訂 VibrationEffect（issue #4 反映預設偏弱無法調強）
+    var hapticStrength: Int
+        get() = sp.getInt("hapticStrength", 0)
+        set(v) = sp.edit().putInt("hapticStrength", v.coerceIn(0, 100)).apply()
+
     /// 隱藏底列 🌐 鍵（空白鍵加寬；長按工具列米/英仍可開輸入法選單）
     var hideGlobeKey: Boolean
         get() = sp.getBoolean("hideGlobeKey", false)
@@ -170,4 +176,13 @@ object Prefs : IMEPreferences {
         if (sp.contains(key)) sp.getBoolean(key, false) else key == "domain_phrases"
 
     override fun domainPriority(key: String): Int = sp.getInt(key + "_pri", 0)
+}
+
+/// 自訂強度 → 震動效果：振幅與時長都隨強度放大（8–32ms、振幅 1–255）。
+/// 有振幅控制的馬達兩者都吃；沒有的（on/off 馬達）只吃時長，仍可感受強弱。
+fun customHapticEffect(strength: Int): android.os.VibrationEffect {
+    val s = strength.coerceIn(1, 100)
+    val amplitude = (255 * s / 100).coerceIn(1, 255)
+    val duration = (8 + s * 24 / 100).toLong()  // 8..32ms
+    return android.os.VibrationEffect.createOneShot(duration, amplitude)
 }

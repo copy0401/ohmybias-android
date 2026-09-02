@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 自訂震動強度直接下 Vibrator.vibrate()（系統預設路徑 performHapticFeedback 不需權限） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".android.OhMyBiasApp"
         android:label="@string/app_name"
