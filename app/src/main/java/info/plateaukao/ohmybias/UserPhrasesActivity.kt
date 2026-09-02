@@ -2,6 +2,7 @@ package info.plateaukao.ohmybias
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -35,7 +36,11 @@ class UserPhrasesActivity : Activity() {
 
     private lateinit var rows: LinearLayout
     private lateinit var scroll: ScrollView
+    private lateinit var backupMessage: TextView
     private val rowViews = ArrayList<Row>()
+
+    private val exportRequest = 1
+    private val importRequest = 2
 
     /// 對照用字表 — 只用 lookup（字表本身的候選），不含捷徑
     private val table: CINTable by lazy { CINTable().also { it.reload() } }
@@ -80,6 +85,24 @@ class UserPhrasesActivity : Activity() {
         val addLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         addLp.topMargin = dp(12f)
         body.addView(add, addLp)
+
+        // ── 備份 ──（issue #5）匯出＝目前列表存成純文字檔；匯入＝讀檔加進列表，按「儲存」才生效
+        val backupRow = LinearLayout(this)
+        backupRow.orientation = LinearLayout.HORIZONTAL
+        val exp = compactButton("匯出備份") { startExport() }
+        val imp = compactButton("匯入備份") { startImport() }
+        backupRow.addView(exp)
+        val impLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        impLp.marginStart = dp(8f)
+        backupRow.addView(imp, impLp)
+        val backupLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        backupLp.topMargin = dp(24f)
+        body.addView(backupRow, backupLp)
+        body.addView(footnote("備份是純文字檔：一行一詞，詞與組字碼以 Tab 分隔，可跨裝置匯入。"))
+        backupMessage = TextView(this)
+        backupMessage.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 13f)
+        backupMessage.visibility = View.GONE
+        body.addView(backupMessage)
 
         scroll.addView(body, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -248,6 +271,109 @@ class UserPhrasesActivity : Activity() {
             sb.append("；與「").append(sameCode.joinToString("」「")).append("」同碼，都會列出")
         }
         row.status.text = sb
+    }
+
+    // MARK: - 備份匯出／匯入
+
+    private fun startExport() {
+        val date = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US).format(java.util.Date())
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "text/plain"
+        intent.putExtra(Intent.EXTRA_TITLE, "ohmybias-常用語-$date.txt")
+        startActivityForResult(intent, exportRequest)
+    }
+
+    private fun startImport() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "*/*"  // 雲端硬碟常回報不準的 MIME，不限型別
+        startActivityForResult(intent, importRequest)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        when (requestCode) {
+            exportRequest -> doExport(uri)
+            importRequest -> doImport(uri)
+        }
+    }
+
+    /// 匯出目前列表（含尚未儲存的編輯）— 檔案內容即 user_phrases.txt 格式。
+    /// 雲端硬碟寫入時間不定，放背景執行緒。
+    private fun doExport(uri: android.net.Uri) {
+        val entries = currentEntries()
+        val content = UserPhrases.serialize(entries)
+        val count = entries.size
+        Thread({
+            val message = try {
+                // "wt" 截斷覆寫 — 覆蓋既有檔案時不留舊內容殘尾
+                contentResolver.openOutputStream(uri, "wt")?.use {
+                    it.write(content.toByteArray(Charsets.UTF_8))
+                    "已匯出 $count 筆常用語"
+                } ?: "匯出失敗 — 無法開啟檔案"
+            } catch (e: Exception) {
+                "匯出失敗 — ${e.message}"
+            }
+            runOnUiThread { showBackupMessage(message, message.startsWith("已")) }
+        }, "ohmybias-export").start()
+    }
+
+    private fun doImport(uri: android.net.Uri) {
+        Thread({
+            val entries: List<UserPhrases.Entry>? = try {
+                contentResolver.openInputStream(uri)?.use {
+                    UserPhrases.parse(it.readBytes().toString(Charsets.UTF_8))
+                }
+            } catch (e: Exception) { null }
+            runOnUiThread {
+                when {
+                    entries == null -> showBackupMessage("匯入失敗 — 無法讀取檔案", ok = false)
+                    entries.isEmpty() -> showBackupMessage("檔案內沒有可匯入的常用語", ok = false)
+                    else -> confirmImport(entries)
+                }
+            }
+        }, "ohmybias-import").start()
+    }
+
+    /// 匯入進列表（不直接寫檔）— 使用者過目後按「儲存」才生效
+    private fun confirmImport(entries: List<UserPhrases.Entry>) {
+        AlertDialog.Builder(this)
+            .setMessage("匯入 ${entries.size} 筆常用語？")
+            .setPositiveButton("加入列表（略過重複）") { _, _ -> applyImport(entries, replace = false) }
+            .setNegativeButton("取代整個列表") { _, _ -> applyImport(entries, replace = true) }
+            .setNeutralButton("取消", null)
+            .show()
+    }
+
+    private fun applyImport(entries: List<UserPhrases.Entry>, replace: Boolean) {
+        if (replace) {
+            rowViews.clear()
+            rows.removeAllViews()
+        } else if (rowViews.size == 1 && rowViews[0].entry() == null) {
+            // 只有一列空白（剛開的空列表）— 清掉，匯入的排最前
+            rowViews.clear()
+            rows.removeAllViews()
+        }
+        val existing = HashSet(currentEntries())
+        var added = 0
+        var skipped = 0
+        for (e in entries) {
+            if (!existing.add(e)) { skipped++; continue }
+            addRow(e, focus = false)
+            added++
+        }
+        refreshAllStatus()
+        val detail = if (skipped > 0) "（略過重複 $skipped 筆）" else ""
+        showBackupMessage("已加入 $added 筆$detail — 按「儲存」才會生效", ok = true)
+    }
+
+    private fun showBackupMessage(text: String, ok: Boolean) {
+        backupMessage.visibility = View.VISIBLE
+        backupMessage.setTextColor(if (ok) colorOk else colorErr)
+        backupMessage.text = text
     }
 
     // MARK: - 儲存／取消
