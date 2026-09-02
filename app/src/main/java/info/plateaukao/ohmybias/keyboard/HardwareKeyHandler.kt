@@ -87,7 +87,8 @@ class HardwareKeyHandler(private val host: Host) {
         pendingShiftToggle = false  // Shift 期間按了別的鍵 → 不是單按
         if (event.isCtrlPressed || event.isAltPressed || event.isMetaPressed) return false
         if (keyCode == KeyEvent.KEYCODE_BACK) return false
-        if (engine.isEnglishMode) return false
+        // 查碼模式優先於英文模式（issue #6）— 英打進注音/拼音查碼時實體鍵仍要進查碼流程
+        if (engine.isEnglishMode && !engine.isZhuyinMode && !engine.isPinyinMode) return false
         if (event.isCapsLockOn) {
             // CapsLock = 英文直通（同 Windows 版慣例）；組字中先結掉再放行
             flushComposing()

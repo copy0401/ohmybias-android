@@ -843,9 +843,11 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     }
 
     private fun handleSpaceKey() {
-        if (engine.isEnglishMode) { commitToEditor(" "); return }
+        // 查碼模式優先於英文模式 — 英打切到注音/拼音查碼時，空白是一聲/查碼，
+        // 不是直通空格（issue #6：英打進注音查碼，空白直接上屏、組不出一聲字）
         if (engine.isPinyinMode) { engine.handlePinyinSpace(); return }
         if (engine.isZhuyinMode) { engine.handleZhuyinSpace(); return }
+        if (engine.isEnglishMode) { commitToEditor(" "); return }
         if (engine.composing.isEmpty() && !showingSuggestions) {
             // 唯一候選自動送出後習慣性補的那一下空白要吃掉，不輸出多餘空格。
             // （組字為空的空白鍵不會進引擎的 handleSpace，所以在這裡問）
@@ -863,8 +865,10 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
     }
 
     private fun handleBackspaceKey() {
-        if (engine.isEnglishMode) { deleteBackward(); return }
+        // 同 handleSpaceKey：查碼模式優先於英文模式（退格要清注音槽，不是刪編輯框）
         if (engine.isPinyinMode) { engine.handlePinyinBackspace(); return }
+        if (engine.isZhuyinMode) { engine.handleBackspace(); return }
+        if (engine.isEnglishMode) { deleteBackward(); return }
         if (showingSuggestions) clearSuggestions()
         engine.handleBackspace()
     }
