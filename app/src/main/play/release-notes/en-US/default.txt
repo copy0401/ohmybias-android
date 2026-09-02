@@ -1,4 +1,4 @@
-0.6.1 — Zhuyin lookup space fix
-• Fixed: after switching from English mode to Zhuyin lookup, space (1st tone) committed a space instead of composing (#6)
-• Fixed: backspace in that state deleted editor text instead of clearing Zhuyin symbols
-• Fixed: hardware keyboard couldn't use Zhuyin/Pinyin lookup while in English mode
+0.6.2 — snappier & adjustable haptics, roomier settings
+• Key vibration now fires the moment your finger touches down, not on release (#4)
+• New "Vibration strength" slider in Settings: 0 = system default, slide right for a stronger buzz
+• Settings toggles spaced further apart with larger touch targets to avoid mis-taps
