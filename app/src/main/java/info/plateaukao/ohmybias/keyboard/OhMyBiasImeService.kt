@@ -688,10 +688,20 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
                 commitToEditor("\t")
             }
             is KeyAction.EnterZhuyin -> {
-                engine.switchToMode("zh")
-                keyboardView?.showPage(KeyboardView.PageKind.ZHUYIN)
+                if (engine.isZhuyinMode)
+                    engine.exitZhuyinMode()
+                else
+                    engine.switchToMode("zh")
+                    engine.setEnglishMode(false)
+                    keyboardView?.showPage(KeyboardView.PageKind.ZHUYIN)
             }
-            is KeyAction.EnterHomophone -> engine.switchToMode("to")
+            is KeyAction.EnterHomophone ->{
+                engine.setEnglishMode(false)
+                if (engine.isSameSoundMode)
+                    engine.switchToMode("t")
+                else
+                    engine.switchToMode("to")
+            }
             is KeyAction.CursorLeft -> moveCursor(-1)
             is KeyAction.CursorRight -> moveCursor(1)
             is KeyAction.DismissKeyboard -> {
@@ -914,6 +924,11 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         setBarComposing("")
         setBarCandidates(emptyList(), suggestions = false)
         candidateBar?.setEnglishMode(engine.isEnglishMode)
+        try {
+            keyboardView?.isEnglishMode = engine.isEnglishMode //cc 退出時 刷新按鍵上的顯示 . -> 。
+        }finally {
+        }
+
     }
 
     /// 候選列與浮動氣泡吃同一份狀態 — 所有更新都經這兩個入口
