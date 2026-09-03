@@ -1,6 +1,6 @@
 package info.plateaukao.ohmybias.shared
 
-/// 候選排序：字頻排序、模式過濾、領域語境、模糊比對。
+/// 候選排序：固定排序前置、模式過濾、領域語境、模糊比對。
 class CandidateRanker(
     private val wikiCorpus: WikiCorpus = WikiCorpus.shared,
     private val prefs: IMEPreferences = DefaultPreferences,
@@ -46,10 +46,10 @@ class CandidateRanker(
 
     /// 依目前輸入模式排序與過濾候選。
     fun rank(
-        raw: List<String>, code: String, prev: String,
-        mode: InputEngine.InputMode, cinTable: CINTable, freqTracker: FreqTracker,
+        raw: List<String>, code: String,
+        mode: InputEngine.InputMode, cinTable: CINTable, pinnedOrder: PinnedOrder,
     ): List<String> {
-        var candidates = freqTracker.sortedWithContext(raw, code, prev)
+        var candidates = pinnedOrder.apply(raw, code)
 
         when (mode) {
             InputEngine.InputMode.SP -> {

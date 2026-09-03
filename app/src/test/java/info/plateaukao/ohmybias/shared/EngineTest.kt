@@ -97,9 +97,10 @@ fun makeFixtureTable(): CINTable {
     return table
 }
 
-fun makeEngine(prefs: MockPrefs = MockPrefs()): Pair<InputEngine, MockEngineDelegate> {
+fun makeEngine(prefs: MockPrefs = MockPrefs(), pinned: PinnedOrder? = null): Pair<InputEngine, MockEngineDelegate> {
     val engine = InputEngine(
         cinTable = makeFixtureTable(),
+        pinnedOrder = pinned ?: PinnedOrder(File(AppEnv.sharedDir, "pinned_${UUID.randomUUID()}.txt").path),
         suggestionEngine = SuggestionEngine(prefs = prefs),
         prefs = prefs,
     )
@@ -144,8 +145,42 @@ class InputEngineTest {
     }
 
     @Test
+    fun pinnedOrder() {
+        // 檔案格式：一行一碼、tab 分欄；非 BMP 字原樣一欄
+        val parsed = PinnedOrder.parse("hj\t乎\t手\nab\t𠮷\t明\n\n")
+        assertEquals(listOf("乎", "手"), parsed["hj"])
+        assertEquals(listOf("𠮷", "明"), parsed["ab"])
+        assertEquals(parsed, PinnedOrder.parse(PinnedOrder.serialize(parsed)))
+
+        // 沒有檔案 → 內建預設 hj → 手乎；apply 只重排、不增減
+        val path = File(AppEnv.sharedDir, "pinned_${UUID.randomUUID()}.txt").path
+        val store = PinnedOrder(path)
+        assertEquals(listOf("手", "乎", "x"), store.apply(listOf("乎", "手", "x"), "hj"))
+        assertEquals(listOf("a", "b"), store.apply(listOf("a", "b"), "zz"))
+
+        // 引擎：,,PIN → 打 hj → 選 乎 → 空白確認 → 再打 hj 時 乎 排第一；,,UNPINhj 後回字表原序
+        val (engine, _) = makeEngine(pinned = store)
+        for (c in listOf(",", ",", "p", "i", "n")) engine.handleLetter(c)
+        engine.handleSpace()
+        engine.handleLetter("h"); engine.handleLetter("j")
+        val idx = engine.currentCandidates.indexOf("乎")
+        assertTrue("hj shows 乎 in pin mode", idx >= 0)
+        engine.selectCandidate(idx)
+        engine.handleSpace()
+        engine.handleLetter("h"); engine.handleLetter("j")
+        assertEquals("乎", engine.currentCandidates.first())
+        engine.handleEscape()
+        assertEquals(listOf("乎"), PinnedOrder(path).chars("hj"))
+        for (c in listOf(",", ",", "u", "n", "p", "i", "n", "h", "j")) engine.handleLetter(c)
+        engine.handleSpace()
+        engine.handleLetter("h"); engine.handleLetter("j")
+        assertEquals(engine.cinTable.lookup("hj"), engine.currentCandidates)
+        assertEquals(null, PinnedOrder(path).chars("hj"))
+    }
+
+    @Test
     fun commitComposingRaw() {
-        // 有候選但使用者要英文單字：點組字碼原樣上屏（不帶尾隨空格、不記字頻）
+        // 有候選但使用者要英文單字：點組字碼原樣上屏（不帶尾隨空格）
         val (engine, mock) = makeEngine()
         engine.handleLetter("a")
         assertTrue("有候選", engine.currentCandidates.isNotEmpty())

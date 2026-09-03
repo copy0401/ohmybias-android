@@ -31,7 +31,6 @@ import info.plateaukao.ohmybias.MainActivity
 import info.plateaukao.ohmybias.UserPhrasesActivity
 import android.text.InputType
 import info.plateaukao.ohmybias.android.Prefs
-import info.plateaukao.ohmybias.android.SqliteFreqTracker
 import info.plateaukao.ohmybias.shared.CINTable
 import info.plateaukao.ohmybias.shared.ClipboardBridge
 import info.plateaukao.ohmybias.shared.InputEngine
@@ -121,10 +120,9 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         window.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         suppressNavScrim()
         SkinSettings.shared.reload()
-        engine = InputEngine(freqTracker = SqliteFreqTracker())
+        engine = InputEngine()
         engine.delegate = this
         engine.loadTable()
-        engine.scheduleBackgroundTasks()
         // 還原上次使用的語言模式（EN/中文）
         engine.setEnglishMode(Prefs.lastEnglishMode)
         warmUpReverseCache()
@@ -140,15 +138,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         }, "ohmybias-warmup").start()
     }
 
-    override fun onFinishInputView(finishingInput: Boolean) {
-        super.onFinishInputView(finishingInput)
-        // 離開輸入框時把未寫入的字頻紀錄排進落盤佇列 — process 被殺也不掉學習資料
-        engine.freqTracker.flushAll()
-    }
-
     /// 輸入階段結束（換輸入框／換 app）—— 未送出的組字狀態不能跨欄位存活，
-    /// 否則新欄位的第一個空白鍵會把上一個欄位遺留的候選字送出去，
-    /// 還會把它記成新欄位的字頻／bigram 樣本。
+    /// 否則新欄位的第一個空白鍵會把上一個欄位遺留的候選字送出去。
     override fun onFinishInput() {
         super.onFinishInput()
         engine.resetSession()
@@ -160,7 +151,6 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
 
     override fun onDestroy() {
         Prefs.removeListener(prefsListener)
-        engine.freqTracker.flushAll()
         super.onDestroy()
     }
 

@@ -18,8 +18,7 @@ Android 嘸蝦米（Boshiamy）鍵盤 — [ohmybias-ios](https://github.com/plat
 
 - **嘸蝦米輸入**：匯入自己的 `liu.cin`，on-device 編譯 mmap 零拷貝載入（CINM 格式與 iOS 版相同，檔案可互通）
 - **基本聯想詞**：commit 後即出現詞組聯想（萌典詞組，CC0，僅 687KB）＋自訂詞（user_phrases.txt）；聯想列開頭有 ✕ 可一鍵關閉
-- **字頻學習**：freq.db 依使用習慣排序候選；`,,PIN` 固定同碼字排序
-- **`,,` 指令**：`,,T/S/J` 切模式、`,,ZH` 注音查碼、`,,TO` 同音字、`,,PYS/PYT` 拼音查碼、`,,SG` 聯想開關、`,,V/VT/VS` 剪貼簿（ICU 簡繁轉換）、`,,H` 說明
+- **`,,` 指令**：`,,T/S/J` 切模式、`,,ZH` 注音查碼、`,,TO` 同音字、`,,PYS/PYT` 拼音查碼、`,,SG` 聯想開關、`,,PIN` 固定同碼字排序、`,,V/VT/VS` 剪貼簿（ICU 簡繁轉換）、`,,H` 說明
 - **極簡資料**：不含專業詞典／語料 binary（<2MB）
 
 ### 鍵盤介面（以 sweetlime 皮膚為藍本，與 iOS 版一致）
@@ -54,7 +53,7 @@ Android 嘸蝦米（Boshiamy）鍵盤 — [ohmybias-ios](https://github.com/plat
 app/src/main/java/info/plateaukao/ohmybias/
   shared/      # 平台無關引擎（對應 iOS Shared/；禁止 Android API）
   keyboard/    # IME service、鍵盤五頁、候選列、面板、主題、手勢
-  android/     # SQLite 字頻、SharedPreferences、剪貼簿（ICU）、Application
+  android/     # SharedPreferences、剪貼簿（ICU）、Application
   MainActivity # 設定頁（匯入字表/皮膚、偏好、自訂詞、測試輸入）
 app/src/main/assets/   # phrases.bin（萌典）、s2t/t2s、zhuyin/pinyin/char_freq（mmap 二進位）
 tools/                 # 資料檔產生腳本（JSON → mmap 二進位）

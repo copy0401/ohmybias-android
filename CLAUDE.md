@@ -48,10 +48,10 @@ adb shell ime set info.plateaukao.ohmybias/.keyboard.OhMyBiasImeService  # force
   runtime 內建、JVM 測試由 test 依賴補齊）。與 iOS `Shared/` 一對一：`InputEngine`（核心狀態機）、
   `CINTable`/`CINCompiler`（CINM 二進位，格式與 iOS 完全相同可跨平台共用）、`CandidateRanker`、
   `SuggestionEngine`、`WikiCorpus`（PHM2 phrases.bin，與 iOS 共用同一份；`tools/convert_phrases_v2.py` 自舊 PHMM 轉製）、`ZhuyinLookup`（zhuyin/pinyin/char_freq mmap 二進位 ZYM2/PYM2/CFM2，`tools/gen_data_bins.py` 自 iOS 版 JSON 轉製；格式見該腳本，讀取端 `DataMaps.kt`）、`BigramSuggest`、`UserPhrases`、
-  `SkinSettings`。平台抽象：`AppEnv`（sharedDir 路徑）、`BinData`（mmap LE 讀取）、
-  `FreqTracker` interface（排序邏輯在 default method）、`ClipboardBridge`、`DefaultPreferences.backing`。
+  `PinnedOrder`（`,,PIN` 固定排序，pinned.txt 與 iOS 同格式；字頻學習已移除）、`SkinSettings`。平台抽象：`AppEnv`（sharedDir 路徑）、`BinData`（mmap LE 讀取）、
+  `ClipboardBridge`、`DefaultPreferences.backing`。
 - `android/`：`OhMyBiasApp`（Application — 建目錄、assets→filesDir/shared 複製、掛橋接）、
-  `Prefs`（SharedPreferences 實作 IMEPreferences）、`SqliteFreqTracker`（freq.db 三表同 iOS）、
+  `Prefs`（SharedPreferences 實作 IMEPreferences）、
   `ClipboardProcessor`（ICU Transliterator 簡繁轉換）。
 - `keyboard/`：`OhMyBiasImeService`（InputMethodService = InputEngineDelegate）、`KeyboardView`
   （字母/數字/符號/注音/九宮格五頁，自訂 ViewGroup 手動排版）、`KeyButton`（自繪+觸控：點按/上下滑/長按/

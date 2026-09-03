@@ -26,7 +26,7 @@ private fun String.cpCount(): Int = codePointCount(0, length)
 
 class InputEngine(
     cinTable: CINTable? = null,
-    freqTracker: FreqTracker? = null,
+    pinnedOrder: PinnedOrder? = null,
     private val zhuyinLookup: ZhuyinLookup = ZhuyinLookup.shared,
     private val suggestionEngine: SuggestionEngine = SuggestionEngine.shared,
     wikiCorpus: WikiCorpus = WikiCorpus.shared,
@@ -35,7 +35,7 @@ class InputEngine(
     var delegate: InputEngineDelegate? = null
 
     val cinTable: CINTable = cinTable ?: CINTable()
-    val freqTracker: FreqTracker = freqTracker ?: MemoryFreqTracker()
+    val pinnedOrder: PinnedOrder = pinnedOrder ?: PinnedOrder.shared
     private val ranker = CandidateRanker(wikiCorpus, prefs)
     private val lock = Any()
 
@@ -150,7 +150,7 @@ class InputEngine(
 
     /// 換輸入框／結束輸入時清空整個組字階段狀態。未送出的組字碼、候選與查詢模式旗標
     /// 都不能跨欄位存活 —— 否則在新欄位按的第一個空白會把上一個欄位遺留的候選字送出去，
-    /// 還會把它記成新欄位的字頻／bigram 樣本。中英模式與已學到的字頻不受影響。
+    /// 中英模式與固定排序不受影響。
     /// 不發 toast／不回呼 delegate：此時鍵盤正在收起，UI 由 service 自己刷新。
     fun resetSession(): Unit = sync {
         _isPinMode = false; _pinCode = ""; _pinPicked = mutableListOf()
@@ -178,8 +178,6 @@ class InputEngine(
     // MARK: - Init
 
     fun loadTable() = cinTable.reload()
-
-    fun scheduleBackgroundTasks() = freqTracker.deferredMerge()
 
     // MARK: - Public API（由鍵盤 service 呼叫）
 
@@ -250,7 +248,7 @@ class InputEngine(
         // Pin 模式：空白確認固定順序
         if (_isPinMode) {
             if (_pinCode.isNotEmpty() && _pinPicked.isNotEmpty()) {
-                freqTracker.pin(_pinCode, _pinPicked.toList())
+                pinnedOrder.pin(_pinCode, _pinPicked.toList())
                 delegate?.engineDidShowToast("已固定 $_pinCode → ${_pinPicked.joinToString("")}")
             } else if (_pinCode.isNotEmpty() && _pinPicked.isEmpty()) {
                 // 尚未選字 — 視為「顯示候選」
@@ -268,7 +266,7 @@ class InputEngine(
             dispatchCommaCommand(); return@sync
         }
         if (_currentCandidates.isEmpty()) {
-            // 英文直通：無候選時空白鍵把打的字串原樣送出（不記字頻）—
+            // 英文直通：無候選時空白鍵把打的字串原樣送出 —
             // 空白鍵本身也要上屏，如同英文模式打字尾隨空格
             val raw = _composing
             resetComposing()
@@ -279,7 +277,7 @@ class InputEngine(
     }
 
     /// 點候選列左側的組字碼 — 字母原樣上屏（英文直通的手動版：有候選但使用者
-    /// 要英文單字時用；不記字頻、不帶尾隨空格）
+    /// 要英文單字時用；不帶尾隨空格）
     fun commitComposingRaw(): Unit = sync {
         if (_composing.isEmpty() || _isPinMode || _isInCommaCommand ||
             _isZhuyinMode || _isPinyinMode || _isSameSoundMode
@@ -595,7 +593,6 @@ class InputEngine(
         _isInCommaCommand = false; _commaCommandBuffer = ""
         resetComposing()
 
-        if (cmd == "rs") { freqTracker.reset(); delegate?.engineDidShowToast("字頻已重置"); return }
         if (cmd == "rl") { cinTable.reload(); UserPhrases.shared.reload(); delegate?.engineDidShowToast("字表已重載"); return }
         if (cmd == "pin") {
             _isZhuyinMode = false; clearZhuyinSlots()
@@ -611,8 +608,8 @@ class InputEngine(
             val arg = cmd.substring(5)  // 如 "unpina" → "a"
             when {
                 arg.isEmpty() -> delegate?.engineDidShowToast("用法：,,UNPIN + 碼（如 ,,UNPINa）")
-                freqTracker.pinnedChars(arg) != null -> {
-                    freqTracker.unpin(arg)
+                pinnedOrder.chars(arg) != null -> {
+                    pinnedOrder.unpin(arg)
                     delegate?.engineDidShowToast("已解除 $arg 的固定排序")
                 }
                 else -> delegate?.engineDidShowToast("$arg 無固定排序")
@@ -814,10 +811,10 @@ class InputEngine(
             return
         }
         val raw = if (_isWildcard) cinTable.wildcardLookup(code) else cinTable.lookup(code)
-        _currentCandidates = ranker.rank(raw, code, _lastCommitted, _inputMode, cinTable, freqTracker)
+        _currentCandidates = ranker.rank(raw, code, _inputMode, cinTable, pinnedOrder)
 
         // 常用語自訂組字碼：排在字表候選之後（撞碼時不擠掉原本的字；獨佔碼時就是唯一候選，
-        // 「唯一候選自動送出」開著會直接上屏）。不經字頻排序 — 位置固定可預期。
+        // 「唯一候選自動送出」開著會直接上屏）。不受固定排序影響 — 位置固定可預期。
         if (!_isWildcard) {
             val shortcuts = cinTable.shortcutLookup(code)
             if (shortcuts.isNotEmpty()) {
@@ -847,14 +844,6 @@ class InputEngine(
             delegate?.engineDidCommitPair(text, right)
         } else {
             delegate?.engineDidCommit(text)
-        }
-        if (_composing.isNotEmpty() && !_isSameSoundMode) {
-            freqTracker.record(_composing, text)
-            freqTracker.recordBigram(_lastCommitted, text)
-            if (_prevCommitted.isNotEmpty()) {
-                freqTracker.recordTrigram(_prevCommitted, _lastCommitted, text)
-            }
-            freqTracker.saveIfNeeded()
         }
         // 領域語境追蹤
         ranker.updateDomainContext(text)
