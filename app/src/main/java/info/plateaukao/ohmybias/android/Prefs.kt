@@ -87,10 +87,21 @@ object Prefs : IMEPreferences {
         get() = sp.getBoolean("homophoneMultiReading", false)
         set(v) = sp.edit().putBoolean("homophoneMultiReading", v).apply()
 
-    /// 上次使用的語言模式（true = 英文）— 鍵盤啟動時還原
+    /// 上次使用的語言模式（true = 英文）— 鍵盤啟動時還原。預設嘸蝦米（米）；
+    /// app 首次啟動與匯入 liu.cin 時歸零（見 resetToChineseMode）
     var lastEnglishMode: Boolean
         get() = sp.getBoolean("lastEnglishMode", false)
         set(v) = sp.edit().putBoolean("lastEnglishMode", v).apply()
+
+    /// 語言模式歸零成嘸蝦米。還沒字表時使用者常切到英文（中文打不出來），
+    /// 字表一匯入就該回中文，不該把那個權宜狀態帶著走；首次啟動也清 —
+    /// SharedPreferences 會跟著自動備份還原，別讓舊裝置的英文狀態變成新裝置的預設（同 iOS）
+    fun resetToChineseMode() { lastEnglishMode = false }
+
+    /// 首次啟動整理是否已做過
+    var firstLaunchDone: Boolean
+        get() = sp.getBoolean("firstLaunchDone", false)
+        set(v) = sp.edit().putBoolean("firstLaunchDone", v).apply()
 
     /// 中文（米）模式字母鍵以大寫顯示 — 嘸蝦米字根表慣用大寫，與實體鍵帽一致；
     /// 只影響鍵面標籤，送出的組字碼不變。英文模式仍依 shift 決定大小寫（同 iOS 鍵名）

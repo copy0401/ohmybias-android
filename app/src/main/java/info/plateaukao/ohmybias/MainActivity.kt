@@ -571,6 +571,9 @@ class MainActivity : Activity() {
             // bin 是實際被查的檔，最後才就位 = 整個匯入的提交點
             if (!cinTmp.renameTo(cin) || !binTmp.renameTo(bin)) return "寫入失敗 — 儲存空間可能不足"
             CINTable.bumpGeneration()  // 鍵盤同 process — 下次進輸入框自動重載
+            // 字表到手就回嘸蝦米 — 匯入前打不出中文而切去的英文模式不該延續到有字表之後
+            // （onStartInput 每次都重讀 lastEnglishMode，下次進輸入框即生效）
+            Prefs.resetToChineseMode()
             return "已編譯 $count 個字碼"
         } catch (e: Exception) {
             return "匯入失敗：${e.message}"

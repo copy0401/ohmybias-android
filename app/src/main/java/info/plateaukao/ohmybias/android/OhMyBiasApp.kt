@@ -15,6 +15,11 @@ class OhMyBiasApp : Application() {
         AppEnv.ensureDirs()
         copyAssetsIfNeeded()
         Prefs.install(this)
+        // 首次啟動：語言模式歸零成嘸蝦米 — 偏好可能從自動備份還原帶著舊的英文狀態
+        if (!Prefs.firstLaunchDone) {
+            Prefs.resetToChineseMode()
+            Prefs.firstLaunchDone = true
+        }
         ClipboardProcessor.install(this)
         CollectionData.install(assets)   // 面板資料改讀 assets/collections.txt（省 ~90 KB dex）
     }
