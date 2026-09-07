@@ -102,7 +102,8 @@ class CollectionPanelView(
         b.gravity = Gravity.CENTER
         val bg = GradientDrawable()
         bg.setColor(KeyboardTheme.keySystem)
-        bg.cornerRadius = KeyboardTheme.cornerRadius * density
+        //bg.cornerRadius = KeyboardTheme.cornerRadius * density
+        bg.cornerRadius = KeyboardTheme.cornerRadius * density * 0
         bg.setStroke(dp(KeyboardTheme.borderWidth).coerceAtLeast(1), KeyboardTheme.systemBorder)
         b.background = bg
         b.isClickable = true

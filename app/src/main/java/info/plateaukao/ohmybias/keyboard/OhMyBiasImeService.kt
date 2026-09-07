@@ -121,10 +121,11 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         window.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         suppressNavScrim()
         SkinSettings.shared.reload()
-        engine = InputEngine(freqTracker = SqliteFreqTracker())
+        //engine = InputEngine(freqTracker = SqliteFreqTracker())
+        engine = InputEngine()
         engine.delegate = this
         engine.loadTable()
-        engine.scheduleBackgroundTasks()
+        //engine.scheduleBackgroundTasks()
         // 還原上次使用的語言模式（EN/中文）
         engine.setEnglishMode(Prefs.lastEnglishMode)
         warmUpReverseCache()
@@ -317,7 +318,8 @@ class OhMyBiasImeService : InputMethodService(), InputEngineDelegate, HardwareKe
         if (showingSuggestions) clearSuggestions()
         applyLanguageToggle()
         // 浮動模式沒有工具列的米/英可看 — 提示一下切到哪
-        if (builtHwMode == HwMode.FLOATING) showToast(if (engine.isEnglishMode) "英" else "米", 0.8)
+        //if (builtHwMode == HwMode.FLOATING) showToast(if (engine.isEnglishMode) "英" else "米", 0.8)
+        if (builtHwMode == HwMode.FLOATING) showToast(if (engine.isEnglishMode) "A" else "中", 0.8)
     }
     override fun ensureShown() {
         if (!isInputViewShown) requestShowSelf(0)

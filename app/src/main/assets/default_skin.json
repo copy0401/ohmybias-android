@@ -13,7 +13,7 @@
     107,
     13,
     1,
-    3,
+    103,
     2
   ],
   "enableSwipeUpActions": true,
@@ -49,8 +49,8 @@
       "bubbleSelectedBg": "#000000",
       "bubbleTextSelected": "#FFFFFF",
       "bubbleTextUnselected": "#000000",
-      "borderSize": 1,
-      "borderSizeHighlight": 1
+      "borderSize": 0,
+      "borderSizeHighlight": 0
     },
     "dark": {
       "bg": "#000000",
@@ -79,15 +79,15 @@
       "bubbleSelectedBg": "#1A1A1A",
       "bubbleTextSelected": "#FFFFFF",
       "bubbleTextUnselected": "#1A1A1A",
-      "borderSize": 1,
-      "borderSizeHighlight": 1
+      "borderSize": 0,
+      "borderSizeHighlight": 0
     }
   },
   "groups": {
     "lowercaseSize": 21,
     "systemSize": 16,
     "numberSize": 24,
-    "swipeSize": 6,
+    "swipeSize": 9,
     "panelLargeSymbolSize": 26,
     "panelLargeEmojiSize": 30,
     "panelLargeKaomojiSize": 20

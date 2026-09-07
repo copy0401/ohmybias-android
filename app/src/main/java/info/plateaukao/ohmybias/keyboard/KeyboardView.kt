@@ -17,6 +17,8 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
+import android.util.AttributeSet
+import kotlin.math.roundToInt
 
 /// 純程式碼鍵盤面板：字母頁／數字頁／符號頁／注音查碼頁／九宮格數字頁＋分類面板。
 /// 版面演算法對應 iOS 版 stack view 約束：
@@ -203,6 +205,60 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         )
     }
 
+
+//    @SuppressLint("DrawAllocation")
+//    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+//        val w = (r - l).toFloat()
+//        val h = (b - t).toFloat()
+//        panelView?.layout(0, 0, w.toInt(), h.toInt())
+//        if (rowsOfButtons.isEmpty()) { layoutPopupIfNeeded(); return }
+//
+//        val gap = Prefs.keySpacingScale
+//        laidOutSpacingScale = gap
+//        val padTop = dp(0f * gap)
+//        val padBottom = dp(0f * gap)
+//        val padSide = dp(0f * gap)
+//        val keySpacing = dp(0f * gap)
+//
+//        val rowCount = rowsOfButtons.size
+//        val rowHeight = (h - padTop - padBottom - keySpacing * (rowCount - 1)) / rowCount
+//        val innerW = w - padSide * 2
+//
+//        for ((rowIndex, buttons) in rowsOfButtons.withIndex()) {
+//            val n = buttons.size
+//            if (n == 0) continue
+//
+//            val specs = buttons.map { it.spec }
+//            val spacingTotal = keySpacing * (n - 1)
+//
+//            // 1. 算出該列所有按鍵的 multiplier 總和，求出單位寬度
+//            val multSum = specs.sumOf { it.widthMultiplier.toDouble() }.toFloat()
+//            val unitWidth = if (multSum > 0f) (innerW - spacingTotal) / multSum else 0f
+//
+//            // --- 佈局執行 (依比例縮放 + 像素級精確對齊) ---
+//            val y = padTop + rowIndex * (rowHeight + keySpacing)
+//            val topInt = y.roundToInt()
+//            val bottomInt = (y + rowHeight).roundToInt()
+//
+//            var currentX = padSide
+//            var leftInt = currentX.roundToInt()
+//
+//            for (i in 0 until n) {
+//                val keyWidth = unitWidth * specs[i].widthMultiplier
+//                currentX += keyWidth
+//                val rightInt = currentX.roundToInt()
+//                buttons[i].layout(leftInt, topInt, rightInt, bottomInt)
+//
+//                // 3. 確保下一個鍵的 Left 與當前鍵的 Right + 間距 完全銜接，不留下像素縫隙
+//                currentX = currentX +  keySpacing
+//                leftInt = rightInt + keySpacing.toInt()
+//            }
+//        }
+//        layoutPopupIfNeeded()
+//    }
+
+
+
     @SuppressLint("DrawAllocation")
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         val w = (r - l).toFloat()
@@ -213,9 +269,14 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         // 間距縮放（設定頁「按鍵間距」）— 調小則鍵面變大、鍵與鍵更緊
         val gap = Prefs.keySpacingScale
         laidOutSpacingScale = gap
-        val padTop = dp(6f * gap); val padBottom = dp(6f * gap); val padSide = dp(3f * gap)
+        val padTop = dp(0f * gap) // 6
+        val padBottom = dp(0f * gap) // 6
+        val padSide = dp(0f * gap) // 3
+
         // 排距與鍵距相同（5dp）— 上下與左右的鍵縫等寬，鍵陣看起來才是均勻的格子
-        val keySpacing = dp(5f * gap); val rowSpacing = keySpacing
+        val keySpacing = dp(0f * gap) //5 > 0 // 要在想想怎麽改
+        val rowSpacing = keySpacing
+
         val rowCount = rowsOfButtons.size
         val rowHeight = (h - padTop - padBottom - rowSpacing * (rowCount - 1)) / rowCount
         val innerW = w - padSide * 2
@@ -250,7 +311,8 @@ class KeyboardView(context: Context) : ViewGroup(context) {
                 }
                 val spaceW = max(dp(40f), innerW - spacingTotal - fixed)
                 for (i in 0 until n) if (isSpaceKey(specs[i])) widths[i] = spaceW
-            } else {
+            }
+            else {
                 // 一般排：整排照 multiplier 比例填滿
                 val multSum = specs.sumOf { it.widthMultiplier.toDouble() }.toFloat()
                 val unit = (innerW - spacingTotal) / multSum
@@ -268,6 +330,11 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         }
         layoutPopupIfNeeded()
     }
+
+
+
+
+
 
     // MARK: - 間隙點擊導向最近按鍵（對應 iOS hitTest）
 
@@ -411,23 +478,25 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         row3 += r3a.map(::key)
         row3 += r3b.map(::key)
         row3.add(KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 1f, isSpecial = true))
+
         val row4 = mutableListOf<KeySpec>()
         if (isEnglishMode) {
             row4.add(KeySpec(if (isShifted) "⬆" else "⇧", KeyAction.Shift, isSpecial = true,  widthMultiplier = 1.0f))
             row4.add(KeySpec("A", KeyAction.ToggleLanguage,  widthMultiplier = 2.0f, isSpecial = true))
         } else {
-            row4.add(KeySpec("⌵", KeyAction.DismissKeyboard,  widthMultiplier = 1.0f,isSpecial = true,))
+            row4.add(KeySpec("⌵", KeyAction.DismissKeyboard, widthMultiplier = 1.0f, isSpecial = true))
             row4.add(KeySpec("中", KeyAction.ToggleLanguage, widthMultiplier = 2.0f,  isSpecial = true,
-                swipeUp = swipeEntry(SwipeData.Entry("", KeyAction.EnterZhuyin), up = true) , //注音反查
-                swipeDown = swipeEntry(SwipeData.Entry(null, KeyAction.EnterHomophone), up = true) // 同音字
+                //swipeUp = swipeEntry(SwipeData.Entry("", KeyAction.EnterZhuyin), up = true) , //注音反查
+                //swipeDown = swipeEntry(SwipeData.Entry(null, KeyAction.EnterHomophone), up = true) // 同音字
             ))
         }
 
         //空格
-        row4.add(KeySpec("", KeyAction.Space,
+        row4.add(KeySpec("", KeyAction.Space , widthMultiplier = 6.0f ,
             swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.ToggleLanguage), up = true),
             swipeUpLeft = swipeEntry(SwipeData.Entry(null, KeyAction.EnterHomophone), up = true),
             swipeUpRight = swipeEntry(SwipeData.Entry(null, KeyAction.EnterZhuyin), up = true)))
+
         // return
         row4.add(KeySpec(returnKeyLabel, KeyAction.Newline, widthMultiplier = 3.0f, isSpecial = true,
             swipeUp = swipeEntry(SwipeData.Entry(null, KeyAction.Newline), up = false), // 插入新行
@@ -505,17 +574,18 @@ class KeyboardView(context: Context) : ViewGroup(context) {
         fun zy(s: String): KeySpec =
             if (s in tones) KeySpec(s, KeyAction.ZhuyinTone(s), widthMultiplier = 1f)
             else KeySpec(s, KeyAction.ZhuyinSymbol(s))
-        val r1 = listOf("ㄅ", "ㄉ", "ˇ", "ˋ", "ㄓ", "ˊ", "˙", "ㄚ", "ㄞ", "ㄢ").map(::zy)
-        val r2 = listOf("ㄆ", "ㄊ", "ㄍ", "ㄐ", "ㄔ", "ㄗ", "ㄧ", "ㄛ", "ㄟ", "ㄣ").map(::zy)
-        val r3 = listOf("ㄇ", "ㄋ", "ㄎ", "ㄑ", "ㄕ", "ㄘ", "ㄨ", "ㄜ", "ㄠ", "ㄤ").map(::zy)
-        val r4 = (listOf("ㄈ", "ㄌ", "ㄏ", "ㄒ", "ㄖ", "ㄙ", "ㄩ", "ㄝ", "ㄡ", "ㄥ").map(::zy))
+        val r1 = listOf("ㄅ", "ㄉ", "ˇ", "ˋ", "ㄓ", "ˊ", "˙", "ㄚ", "ㄞ", "ㄢ","ㄦ","").map(::zy)
+        val r2 = listOf("ㄆ", "ㄊ", "ㄍ", "ㄐ", "ㄔ", "ㄗ", "ㄧ", "ㄛ", "ㄟ", "ㄣ","","").map(::zy)
+        val r3 = listOf("ㄇ", "ㄋ", "ㄎ", "ㄑ", "ㄕ", "ㄘ", "ㄨ", "ㄜ", "ㄠ", "ㄤ","","").map(::zy)
+        val r4 = (listOf("ㄈ", "ㄌ", "ㄏ", "ㄒ", "ㄖ", "ㄙ", "ㄩ", "ㄝ", "ㄡ", "ㄥ","").map(::zy))
         val row5 = listOf(
+            KeySpec("⌵", KeyAction.DismissKeyboard, widthMultiplier = 1.0f, isSpecial = true),
             KeySpec("退出", KeyAction.ZhuyinExit, widthMultiplier = 2f, isSpecial = true),
-            KeySpec("空白（一聲）", KeyAction.Space, widthMultiplier = 5f),
-            KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 2f, isSpecial = true),
-            zy("ㄦ")
+            KeySpec("ˉ", KeyAction.Space, widthMultiplier = 6f),
+            KeySpec("", KeyAction.Backspace, isSpecial = true, widthMultiplier = 3f),
+            //KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 2f, isSpecial = true)
         )
-        return listOf(r1, r2, r3, r4, row5 )
+        return listOf(r1, r2, r3, r4+KeySpec("⌫", KeyAction.Backspace, widthMultiplier = 1f, isSpecial = true), row5 )
     }
 }
 
@@ -551,7 +621,8 @@ class KeyButton(
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     override fun onDraw(canvas: Canvas) {
-        val r = KeyboardTheme.cornerRadius * density
+        //val r = KeyboardTheme.cornerRadius * density
+        val r =  KeyboardTheme.cornerRadius * density * 0 //取消按鍵圓角
         // 邊框寬/色都分平時與按下兩套（皮膚未定義按下值時鏈回平時值 → 外觀不變）
         val bw = (if (isPressedState) KeyboardTheme.borderWidthHighlight
                   else KeyboardTheme.borderWidth) * density
@@ -591,8 +662,8 @@ class KeyButton(
             canvas.drawText(hint, width - dp(4f), dp(2f) - hintPaint.ascent(), hintPaint)
         }
         spec.swipeDown?.hint?.let { hint ->
-            hintPaint.textAlign = Paint.Align.RIGHT
-            canvas.drawText(hint, width - dp(4f), height - dp(2f) - hintPaint.descent(), hintPaint)
+            hintPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(hint,  width / 2f , height - dp(2f) - hintPaint.descent(), hintPaint)
         }
     }
 

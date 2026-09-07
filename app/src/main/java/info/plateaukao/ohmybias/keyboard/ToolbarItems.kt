@@ -71,6 +71,7 @@ object ToolbarItems {
         91 -> Item(id,"。", "。", KeyAction.Letter(".")) //部分碼表 為輸入碼
         92 -> Item(id,"\\t", "Tab鍵", KeyAction.Tab)
         93 -> Item(id,"音", "同音字模式", KeyAction.EnterHomophone)
+        103 -> Item(id, "中", "中英切換", KeyAction.ToggleLanguage, isLanguage = true)
         107 -> Item(id, "符", "符號面板", KeyAction.ToggleToolbarPage(KeyboardView.PageKind.SYMBOL_PANEL))
         127 -> Item(id, "注", "注音查碼", KeyAction.EnterZhuyin)
         else -> null
